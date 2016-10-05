@@ -6,20 +6,29 @@ import can.hi.{ connection => HC }
 
 import net.bmjames.opts._
 
-import scalaz._, Scalaz._, scalaz.effect._
+import scalaz._, Scalaz.{ some => _, _ }, scalaz.effect._
 
 
 class Example extends SafeShell {
   import Session.L
 
-  def initialize[A]: State[Session[A], Unit] =
+  val add = Info[Int](
+    "add", "Adds a number to the current count.",
+    intArgument(metavar("<number>"), help("Number to add.")).map { n => s =>
+      for {
+        _ <- HC.writeLn(s"${s.state} + $n = ${s.state + n}")
+      } yield s.copy(state = s.state + n)
+    }
+  )
+
+  def initialize: State[Session[Int], Unit] =
     for {
-      _ <- L.commands := Builtins[A]
+      _ <- L.commands := Builtins[Int] |+| Commands(add)
       _ <- L.prompt   := "tuco> "
     } yield ()
 
   val initialState: Session[Int] =
-    initialize[Int].exec(Session.initial(42))
+    initialize.exec(Session.initial(42))
 
   val shellMain: ConnectionIO[Unit] =
     HC.writeLn("Herro.")   *>
@@ -83,7 +92,16 @@ object Builtins {
     Parser.pure(s => history(s.history).as(s))
   )
 
-  def apply[A] = Commands(exitP[A], historyP[A])
+  def helpP[A] = Info[A](
+    ":help", "Show command help.",
+    Parser.pure { s =>
+      val infos = s.commands.toList.sortBy(_.name)
+      val w = infos.map(_.name.length).max + 3 // TODO: use kiama/PP
+      infos.traverseU(i => HC.writeLn(i.name.padTo(w, ' ') + i.desc)).as(s)
+    }
+  )
+
+  def apply[A] = Commands(exitP[A], historyP[A], helpP[A])
 
   def history(h: History): FC.ConnectionIO[Unit] =
     h.toList.reverse.zipWithIndex.traverseU { case (s, n) => HC.writeLn(s"$n: $s") } .void
