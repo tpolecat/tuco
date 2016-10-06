@@ -12,7 +12,7 @@ import scalaz._, Scalaz.{ some => _, _ }, scalaz.effect._
 class Example extends SafeShell {
   import Session.L
 
-  val add = Info[Int](
+  val add = Command[Int](
     "add", "Adds a number to the current count.",
     intArgument(metavar("<number>"), help("Number to add.")).map { n => s =>
       for {
@@ -82,17 +82,17 @@ object Builtins {
   import net.bmjames.opts. { Parser => _, _}
   import net.bmjames.opts.types._
 
-  def exitP[A] = Info[A](
+  def exitP[A] = Command[A](
     ":exit", "Exit the shell.",
     Parser.pure(s => s.copy(done = true).point[FC.ConnectionIO])
   )
 
-  def historyP[A] = Info[A](
+  def historyP[A] = Command[A](
     ":history", "Show command history.",
     Parser.pure(s => history(s.history).as(s))
   )
 
-  def helpP[A] = Info[A](
+  def helpP[A] = Command[A](
     ":help", "Show command help.",
     Parser.pure { s =>
       val infos = s.commands.toList.sortBy(_.name)
@@ -103,7 +103,7 @@ object Builtins {
 
   def apply[A] = Commands(exitP[A], historyP[A], helpP[A])
 
-  def history(h: History): FC.ConnectionIO[Unit] =
+  def history(h: Session.History): FC.ConnectionIO[Unit] =
     h.toList.reverse.zipWithIndex.traverseU { case (s, n) => HC.writeLn(s"$n: $s") } .void
 
 

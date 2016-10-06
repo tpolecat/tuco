@@ -9,9 +9,10 @@ import scalaz.{ Success => _, Failure => _, _ }, Scalaz._
 import net.bmjames.opts. { Parser => _, _}
 import net.bmjames.opts.types._
 
-case class Info[A](name: String, desc: String, parser: Parser[Session[A] => FC.ConnectionIO[Session[A]]])
 
-case class Commands[A](toList: List[Info[A]]) {
+case class Command[A](name: String, desc: String, parser: Parser[Session[A] => FC.ConnectionIO[Session[A]]])
+
+case class Commands[A](toList: List[Command[A]]) {
 
   object tokenize {
     private val R = """"([^"]*)"|(\S+)""".r
@@ -43,7 +44,7 @@ case class Commands[A](toList: List[Info[A]]) {
 }
 object Commands {
 
-  def apply[A](is: Info[A]*): Commands[A] =
+  def apply[A](is: Command[A]*): Commands[A] =
     Commands(is.toList)
 
   def empty[A]: Commands[A] = Commands(Nil)
