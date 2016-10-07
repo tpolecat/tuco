@@ -1,12 +1,7 @@
-package tuco.shell
+package tuco.example
 
-import tuco.free._
-import tuco.free.{ connection => FC }
-import tuco.hi.{ connection => HC }
-import tuco.util._
-
+import tuco.imports._
 import net.bmjames.opts._
-
 import scalaz._, Scalaz._
 
 class Example extends SafeShell {

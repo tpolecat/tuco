@@ -23,7 +23,7 @@ object FreeGen {
     classOf[net.wimpi.telnetd.io.BasicTerminalIO]
   )
 
-  val out = new File("modules/core/src/main/scala/can/free")
+  val out = new File("modules/core/src/main/scala/tuco/free")
 
   def main(args: Array[String]): Unit = {
     new FreeGen(managed).gen(out)
@@ -199,6 +199,7 @@ class FreeGen(managed: List[Class[_]]) {
     val sname = toScalaType(ev.runtimeClass)
    s"""
     |package tuco.free
+    |import tuco.util.Capture
     |
     |import scalaz.{ Catchable, Free => F, Kleisli, Monad, ~>, \\/ }
     |

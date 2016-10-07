@@ -1,5 +1,6 @@
 package tuco.free
 
+import tuco.util.Capture
 import scalaz.{ Catchable, Free => F, Kleisli, Monad, ~>, \/ }
 
 // object kleislitrans {

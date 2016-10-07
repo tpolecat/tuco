@@ -2,6 +2,8 @@ package tuco.util
 
 import scalaz._, Scalaz._
 
+// N.B this is Endomorphism[Kleisli[F, ?, ?], ?]
+
 /** Abstraction over functions of the shape `A => F[A]`. */
 case class EndoT[F[_], A](run: A => F[A]) {
 
