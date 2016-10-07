@@ -1,8 +1,8 @@
-package can.shell
+package tuco.shell
 
-import can.free._
-import can.free.{ connection => FC }
-import can.hi.{ connection => HC }
+import tuco.free._
+import tuco.free.{ connection => FC }
+import tuco.hi.{ connection => HC }
 
 import net.bmjames.opts._
 

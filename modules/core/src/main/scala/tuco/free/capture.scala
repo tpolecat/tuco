@@ -1,4 +1,4 @@
-package can.free
+package tuco.free
 
 trait Capture[F[_]] {
   def apply[A](a: => A): F[A]

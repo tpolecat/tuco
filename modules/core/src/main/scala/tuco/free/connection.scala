@@ -1,4 +1,4 @@
-package can.free
+package tuco.free
 
 import scalaz.{ Catchable, Free => F, Kleisli, Monad, ~>, \/ }
 

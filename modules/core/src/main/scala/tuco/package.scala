@@ -1,6 +1,6 @@
-package object can extends WimpiConversions {
+package object tuco extends WimpiConversions {
 
-  type ConnectionIO[A] = can.free.connection.ConnectionIO[A]
+  type ConnectionIO[A] = tuco.free.connection.ConnectionIO[A]
 
   type Listener = Event => ConnectionIO[Unit]
 
@@ -10,12 +10,12 @@ package object can extends WimpiConversions {
 
 trait WimpiConversions {
 
-  import can.{ Event, Listener }
-  import can.free.Capture
-  import can.free.connection._
+  import tuco.{ Event, Listener }
+  import tuco.free.Capture
+  import tuco.free.connection._
   import net.wimpi.telnetd.net._
   import scalaz.effect._
-  import can.Event._
+  import tuco.Event._
 
   implicit val CaptureIO: Capture[IO] =
     new Capture[IO] {

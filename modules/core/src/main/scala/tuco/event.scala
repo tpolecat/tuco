@@ -1,4 +1,4 @@
-package can
+package tuco
 
 sealed abstract class Event extends Product with Serializable
 object Event {

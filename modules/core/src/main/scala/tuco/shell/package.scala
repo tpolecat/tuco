@@ -1,6 +1,6 @@
-package can
+package tuco
 
-import can.util.EndoT
+import tuco.util.EndoT
 import scalaz._, Scalaz._
 
 package object shell {

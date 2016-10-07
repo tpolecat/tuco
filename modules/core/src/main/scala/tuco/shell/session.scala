@@ -1,4 +1,4 @@
-package can.shell
+package tuco.shell
 
 import scalaz._, Scalaz._
 

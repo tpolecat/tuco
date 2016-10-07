@@ -1,7 +1,7 @@
-package can.hi
-import can.free._
-import can.free.{ connection      => FC }
-import can.free.{ basicterminalio => FBT }
+package tuco.hi
+import tuco.free._
+import tuco.free.{ connection      => FC }
+import tuco.free.{ basicterminalio => FBT }
 
 import scalaz._, Scalaz._, scalaz.effect._
 

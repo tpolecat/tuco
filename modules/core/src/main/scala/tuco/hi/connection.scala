@@ -1,8 +1,8 @@
-package can.hi
+package tuco.hi
 
-import can.free.{ connection      => FC }
-import can.free.{ basicterminalio => FBT }
-import can.hi.{ basicterminalio => HBT }
+import tuco.free.{ connection      => FC }
+import tuco.free.{ basicterminalio => FBT }
+import tuco.hi.{ basicterminalio => HBT }
 
 import scalaz._, Scalaz._
 

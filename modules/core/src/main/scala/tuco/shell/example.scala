@@ -1,18 +1,19 @@
-package can.shell
+package tuco.shell
 
-import can.free._
-import can.free.{ connection => FC }
-import can.hi.{ connection => HC }
-import can.util._
+import tuco.free._
+import tuco.free.{ connection => FC }
+import tuco.hi.{ connection => HC }
+import tuco.util._
 
 import net.bmjames.opts._
 
-import scalaz._, Scalaz.{ some => _, _ }, scalaz.effect._
+import scalaz._, Scalaz._
 
 class Example extends SafeShell {
+  import Session.L
 
-  val add = Command[Int](
-    "add", "Adds a number to the current count.",
+  val add = Command(
+    "add", "Add a number to the current count.",
     intArgument(metavar("<number>"), help("Number to add.")).map { n =>
       L.data[Int].endoT[FC.ConnectionIO] { data =>
         for {

@@ -198,7 +198,7 @@ class FreeGen(managed: List[Class[_]]) {
   def module[A](implicit ev: ClassTag[A]): String = {
     val sname = toScalaType(ev.runtimeClass)
    s"""
-    |package can.free
+    |package tuco.free
     |
     |import scalaz.{ Catchable, Free => F, Kleisli, Monad, ~>, \\/ }
     |
