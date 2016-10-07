@@ -25,7 +25,9 @@ object basicterminalio {
     def down      = history.next.map(z => copy(z.focus, "", history = z))
   }
 
-  def readLn(prompt: String, history: Zipper[String]): FBT.BasicTerminalIOIO[String] = {
+  private val NoHistory = NonEmptyList("").toZipper
+
+  def readLn(prompt: String, history: Zipper[String] = NoHistory): FBT.BasicTerminalIOIO[String] = {
     import net.wimpi.telnetd.io.BasicTerminalIO.{ COLORINIT => CTRL_A, _ }
 
     val KILL = 11
@@ -101,7 +103,10 @@ object basicterminalio {
         }
 
     // go!
-    FBT.write(prompt + history.focus) *> go(LineState(history.focus, "", history))
+    FBT.write(prompt)        *>
+    FBT.storeCursor          *>
+    FBT.write(history.focus) *>
+    FBT.restoreCursor        *> go(LineState("", history.focus, history))
 
   }
 

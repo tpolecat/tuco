@@ -21,17 +21,21 @@ class Example extends SafeShell {
   val initialState: Session[Int] =
     Session.initial(42).copy(
       commands = Builtins[Int] |+| Commands(add),
-      prompt   = "tuco>"
+      prompt   = "tuco> "
     )
 
   val shellMain: FC.ConnectionIO[Unit] =
-    HC.writeLn("Herro.")   *>
-    CommandShell.run(initialState) *>
-    HC.writeLn("Bye!")
+    for {
+      _ <- HC.writeLn("Welcome to the Tuco demo.")
+      n <- HC.readLn("Your Name? ")
+      _ <- HC.writeLn(s"Hello $n. Initial count is ${initialState.data}")
+      f <- CommandShell.run(initialState)
+      _ <- HC.writeLn("Goodbye. Final count was " + f.data)
+    } yield ()
 
 }
 
-object Main {
+object Example {
   def main(args: Array[String]): Unit =
     net.wimpi.telnetd.TelnetD.main(Array("file:config.properties"))
 }
