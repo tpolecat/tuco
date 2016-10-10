@@ -24,7 +24,7 @@ Add the dependency to your `build.sbt` thus:
 libraryDependencies += "org.tpolecat" %% "tuco" % "0.1-SNAPSHOT"
 ```
 
-See `example.scala` for now. TODO: tut doc
+See `example.scala` for now (hit `t` to find it). TODO: tut doc
 
 ### Probable FAQ
 

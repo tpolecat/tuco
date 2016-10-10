@@ -7,7 +7,7 @@ import scalaz._, Scalaz._, scalaz.effect._
 object Example extends SafeApp {
   import Session.L // module of Session lenses
 
-  // A shell command for an telnet server that carries user-defined state of type `Int`. Here we
+  // A shell command for a telnet server that carries user-defined state of type `Int`. Here we
   // just keep a per-session counter that the user can add to. The third argument is the interesting
   // one. It's an optparse-applicative `Parser[EndoT[ConnectionIO, Session[Int]]]` that we have
   // lensed down to `EndoT[ConnectionIO, Int]`. This is very simple but needs doc, sorry.
