@@ -13,9 +13,7 @@ import scalaz._, Scalaz.{ some => _, _ }, scalaz.effect._
  * reflection-based machinery to construct and manage a shell defined in a reasomable way. With
  * some luck this will go away.
  */
-trait SafeShell extends net.wimpi.telnetd.shell.Shell {
-
-  def shellMain: FC.ConnectionIO[Unit]
+abstract class SafeShell(val shellMain: FC.ConnectionIO[Unit]) extends net.wimpi.telnetd.shell.Shell {
 
   final def run(c: net.wimpi.telnetd.net.Connection): Unit =
     shellMain.transK[IO].run(c).unsafePerformIO
