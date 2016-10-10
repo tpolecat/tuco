@@ -4,6 +4,7 @@ object imports {
 
   type BasicTerminalIOIO[A] = free.basicterminalio.BasicTerminalIOIO[A]
   type ConnectionIO[A]      = free.connection.ConnectionIO[A]
+  type TelnetDIO[A]         = free.telnetd.TelnetDIO[A]
 
   type SafeShell   = shell.SafeShell
   type Session[A]  = shell.Session[A]
@@ -18,9 +19,12 @@ object imports {
 
   val FB = free.basicterminalio
   val FC = free.connection
+  val FT = free.telnetd
 
   val HB = hi.basicterminalio
   val HC = hi.connection
 
+  type Config = util.Config
+  val  Config = util.Config
 
 }

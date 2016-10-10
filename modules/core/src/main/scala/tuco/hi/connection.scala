@@ -22,7 +22,7 @@ object connection {
     write(s + CRLF)
 
   /** Read given a prompt and history. */
-  def readLn(prompt: String, history: Zipper[String]): FC.ConnectionIO[String] =
+  def readLn(prompt: String, history: Zipper[String] = NonEmptyList("").toZipper): FC.ConnectionIO[String] =
     liftBT(HBT.readLn(prompt, history))
 
 }

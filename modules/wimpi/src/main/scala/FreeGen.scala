@@ -20,7 +20,8 @@ object FreeGen {
     classOf[net.wimpi.telnetd.net.ConnectionData],
     classOf[net.wimpi.telnetd.net.ConnectionEvent],
     classOf[net.wimpi.telnetd.net.ConnectionListener],
-    classOf[net.wimpi.telnetd.io.BasicTerminalIO]
+    classOf[net.wimpi.telnetd.io.BasicTerminalIO],
+    classOf[net.wimpi.telnetd.TelnetD]
   )
 
   val out = new File("modules/core/src/main/scala/tuco/free")
@@ -168,6 +169,7 @@ class FreeGen(managed: List[Class[_]]) {
   def methods(c: Class[_]): List[Method] =
     closure(c).flatMap(_.getMethods.toList)
       .distinct
+      .filterNot(m => (m.getModifiers & java.lang.reflect.Modifier.STATIC) != 0)
       .filterNot(_.getDeclaringClass.getName.startsWith("java.lang"))
 
   // Ctor values for all methods in of A plus superclasses, interfaces, etc.

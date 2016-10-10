@@ -2,7 +2,7 @@ package tuco.example
 
 import tuco.imports._
 import net.bmjames.opts._
-import scalaz._, Scalaz._
+import scalaz._, Scalaz._, scalaz.effect._
 
 class Example extends SafeShell {
   import Session.L
@@ -35,7 +35,21 @@ class Example extends SafeShell {
 
 }
 
-object Example {
-  def main(args: Array[String]): Unit =
-    net.wimpi.telnetd.TelnetD.main(Array("file:config.properties"))
+
+object Example extends SafeApp {
+
+  val config = Config[Example](6666)
+
+  override def runc =
+    config.run(telnetMain)
+
+  val telnetMain: TelnetDIO[Unit] =
+    for {
+      _ <- FT.start // returns immediately
+      _ <- FT.delay(System.out.println("Press a key to exit..."))
+      _ <- FT.delay(System.in.read)
+      _ <- FT.stop  // closes all connections
+      _ <- FT.delay(System.out.println("Bye."))
+    } yield ()
+
 }

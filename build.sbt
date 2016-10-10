@@ -2,6 +2,9 @@
 
 lazy val commonSettings = Seq(
   scalaVersion := "2.11.8",
+  scalacOptions := Seq(
+    "-deprecation"
+  ),
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.8.0")
 )
 

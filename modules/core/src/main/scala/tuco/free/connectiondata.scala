@@ -8,6 +8,7 @@ import java.net.InetAddress
 import java.net.Socket
 import java.util.HashMap
 import java.util.Locale
+import net.wimpi.telnetd.TelnetD
 import net.wimpi.telnetd.io.BasicTerminalIO
 import net.wimpi.telnetd.net.Connection
 import net.wimpi.telnetd.net.ConnectionData
@@ -20,6 +21,7 @@ import connectiondata.ConnectionDataIO
 import connectionevent.ConnectionEventIO
 import connectionlistener.ConnectionListenerIO
 import basicterminalio.BasicTerminalIOIO
+import telnetd.TelnetDIO
 
 /**
  * Algebra and free monad for primitive operations over a `net.wimpi.telnetd.net.ConnectionData`.

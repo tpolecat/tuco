@@ -60,7 +60,7 @@ public class TelnetD {
   private final ShellManager shellManager;
   private final TerminalManager terminalManager;
 
-  private TelnetD(ShellManager sm, TerminalManager tm) {
+  public TelnetD(ShellManager sm, TerminalManager tm) {
     shellManager = sm;
     terminalManager = tm;
   }
@@ -93,7 +93,7 @@ public class TelnetD {
    * @param settings Properties object that holds main settings.
    * @throws BootException if preparation fails.
    */
-  private void prepareListener(String name, Properties settings)
+  public void prepareListener(String name, Properties settings)
       throws BootException {
 
     //factorize PortListener
@@ -136,8 +136,7 @@ public class TelnetD {
    *         passed in properties, and is ready to start serving.
    * @throws BootException if the setup process fails.
    */
-  public static TelnetD createTelnetD(Properties main)
-      throws BootException {
+  public static TelnetD createTelnetD(Properties main)  throws BootException {
       TelnetD td = new TelnetD(ShellManager.createShellManager(main), TerminalManager.createTerminalManager(main));
       String[] listnames = StringUtil.split(main.getProperty("listeners"), ",");
     for (String listname : listnames) {
@@ -145,61 +144,5 @@ public class TelnetD {
     }
       return td;
   }//createTelnetD
-
-  /**
-   * Factory method to create a TelnetD singleton instance,
-   * loading the standard properties files from the given
-   * String containing an URL location.<br>
-   *
-   * @param urlprefix String containing an URL prefix.
-   * @return TenetD instance that has been properly set up according to the
-   *         passed in properties, and is ready to start serving.
-   * @throws BootException if the setup process fails.
-   */
-  public static TelnetD createTelnetD(String urlprefix)
-      throws BootException {
-
-    try {
-      return createTelnetD(PropertiesLoader.loadProperties(urlprefix));
-    } catch (IOException ex) {
-      log.log(java.util.logging.Level.SEVERE, "Trouble creating TelnetD", ex);
-      throw new BootException("Failed to load configuration from given URL.");
-    }
-  }//createTelnetD
-
-
-
-  /**
-   * Implements a test startup of an example server.
-   * It is supposed to demonstrate the easy deployment,
-   * and usage of this daemon.<br>
-   * <em>Usage:</em><br>
-   * <code>java net.wimpi.telnetd.TelnetD [URL prefix pointing to properties]</code>
-   *
-   * @param args String array containing arguments.
-   */
-  public static void main(String[] args) {
-    TelnetD myTD = null;
-
-    try {
-      //1. prepare daemon
-      if (args.length == 0) {
-        System.out.println("\nUsage: java net.wimpi.telnetd.TelnetD urlprefix\n");
-        System.out.println("         java net.wimpi.telnetd.TelnetD url\n");
-        System.exit(1);
-      } else {
-        myTD = TelnetD.createTelnetD(args[0]);
-      }
-      //2.start serving/accepting connections
-      myTD.start();
-      System.out.println("Press a key to exit...");
-      System.in.read();
-      myTD.stop();
-    } catch (Exception ex) {
-      ex.printStackTrace();
-      System.exit(1);
-    }
-  }//main
-
 
 }//class TelnetD
