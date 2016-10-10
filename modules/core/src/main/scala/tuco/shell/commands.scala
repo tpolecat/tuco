@@ -48,7 +48,7 @@ case class Commands[A](toList: List[Command[A]]) {
    */
   def interpT(c: String, args: List[String]): EndoT[FC.ConnectionIO, Session[A]] =
     toList.filter(_.name.startsWith(c)) match {
-      case Nil      => EndoT.effect(HC.writeLn("Unknown command. Try 'help' for help."))
+      case Nil      => EndoT.effect(HC.writeLn("Unknown command. Try ':help' for help."))
       case i :: Nil =>
         val pinfo  = info(i.parser <*> helper, progDesc(i.desc))
         val pprefs = prefs(idm[PrefsMod])
