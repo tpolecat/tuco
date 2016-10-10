@@ -13,7 +13,7 @@ Why would you want to do this? Dunno. Laziness? It's easier than writing a web U
 
 ### Quick Start
 
-**Tuco** is available for **Scala 2.10**, **2.11**, and **2.12-RC1** with
+**Tuco** is available for **Scala 2.10** and **2.11** with
 
 - scalaz 7.2
 - scala-optparse-applicative 0.4
@@ -21,42 +21,10 @@ Why would you want to do this? Dunno. Laziness? It's easier than writing a web U
 Add the dependency to your `build.sbt` thus:
 
 ```scala
-libraryDependencies += "org.tpolecat" %% "tuco" % "0.1"
+libraryDependencies += "org.tpolecat" %% "tuco" % "0.1-SNAPSHOT"
 ```
 
-Construct a set of commands that you wish to provide:
-
-```scala
-// TODO
-```
-
-Construct a telnet server configured with your commands and other options:
-
-```scala
-// Use lenses to set options
-val config: State[TelnetD, Unit] =
-  for {
-    _ <- L.commands %= (cs => cs |+| cmds)
-    _ <- L.port     := 6666
-    _ <- L.maxcon   := 25
-  } yield ()
-
-// Our configured telnet daemon
-val t = config.exec(TelnetD.initial)
-```
-
-Run that baby.
-
-```scala
-t.start.unsafePerformIO // returns immediately; t.stop is a shutdown action
-```
-
-Try it out:
-
-```
-$ telnet localhost 6666
-...
-```
+See `example.scala` for now. TODO: tut doc
 
 ### Probable FAQ
 

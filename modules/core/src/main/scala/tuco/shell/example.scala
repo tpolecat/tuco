@@ -40,9 +40,6 @@ object Example extends SafeApp {
 
   val config = Config[Example](6666)
 
-  override def runc =
-    config.run(telnetMain)
-
   val telnetMain: TelnetDIO[Unit] =
     for {
       _ <- FT.start // returns immediately
@@ -51,5 +48,8 @@ object Example extends SafeApp {
       _ <- FT.stop  // closes all connections
       _ <- FT.delay(System.out.println("Bye."))
     } yield ()
+
+  override def runc: IO[Unit] =
+    config.run(telnetMain)
 
 }
