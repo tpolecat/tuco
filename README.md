@@ -5,11 +5,11 @@
 
 Reasonable telnet server for Scala.
 
-This is a slimmed-down fork of the old [`net.wimp.telnetd`](http://telnetd.sourceforge.net/) with a pure API in the style of [doobie](https://github.com/tpolecat/doobie). It lets you embed a telnet server in your application in a reasonable way.
+This is a slightly cleaned-up fork of the prehistoric [`net.wimpi.telnetd`](http://telnetd.sourceforge.net/) with a pure API in the style of [doobie](https://github.com/tpolecat/doobie). It lets you embed a telnet server in your application in a reasonable way.
 
 Why would you want to do this? Dunno. Laziness? It's easier than writing a web UI or dealing with `curl` and sometimes it's really all you need for a backdoor engineering interface.
 
-**Tuco** lets you do arbitrary stuff, but the most common usage is to provide a set of commands with options defined via [scala-optparse-applicative](https://github.com/bmjames/scala-optparse-applicative) (included) and use the provided server implementation which provides command history, acceptable line editing, and good help facilities.
+**Tuco** lets you do arbitrary stuff, but the most common usage is to provide a set of commands with options defined via [scala-optparse-applicative](https://github.com/bmjames/scala-optparse-applicative) (included) and use the provided `CommandShell` which provides command history, okay line editing, and good help facilities.
 
 ### Quick Start
 
