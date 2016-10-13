@@ -7,22 +7,24 @@ import scalaz._, Scalaz._, scalaz.effect._
 object Example extends SafeApp {
   import Session.L // module of Session lenses
 
-  // A shell command for a telnet server that carries user-defined state of type `Int`. Here we
-  // just keep a per-session counter that the user can add to. The third argument is the interesting
-  // one. It's an optparse-applicative `Parser[EndoT[ConnectionIO, Session[Int]]]` that we have
-  // lensed down to `EndoT[ConnectionIO, Int]`. This is very simple but needs doc, sorry.
+  // A shell command for a telnet server that carries user-defined state of type Int. Arguments
+  // are the command name, a help string, and an optparse-applicative
+  // Parser[Session[Int] => ConnectionIO[Session[Int]]]; i.e., a parser that yields an effectful
+  // state transition, which is how we define a command's implementation.
   val add: Command[Int] =
     Command(
       "add", "Add a number to the current count.",
-      intArgument(metavar("<number>"), help("Number to add.")).map { n =>
-        L.data[Int].endoT[ConnectionIO] { data =>
+      intArgument(metavar("<number>"), help("Number to add.")).map { n => // the Int we parsed
+        // We need to construct a Session[Int] => ConnectionIO[Session[Int]] here but we only care
+        // about the `data` member so we lens down and lift an Int => ConnectionIO[Int].
+        L.data[Int] =>>= { data =>
           HC.writeLn(s"${data} + $n = ${data + n}").as(data + n)
         }
       }
     )
 
   // Our initial `CommandShell` state, which is a `Session` whose `data` slot carries an `Int`.
-  // Available commands are the builtins (help, history, exit) plus our `add` command defined
+  // Available commands are the builtins (:help, :history, :exit) plus our `add` command defined
   // above, and we set a custom user prompt.
   val initialState: Session[Int] =
     Session.initial(42).copy(
@@ -46,8 +48,8 @@ object Example extends SafeApp {
   // above definition in a new class with an empty constructor. This restriction will go away.
   class Example extends SafeShell(interact)
 
-  // Our top-level program starts up the `TelnetD`, prints some stuff, waits for the user to press
-  // enter, then exits. While it's waiting users can connect on port 6666.
+  // Our top-level program starts up the `TelnetD`, prints some stuff, waits for the someone to
+  // press enter, then exits. While it's waiting users can connect via telnet.
   val telnetMain: TelnetDIO[Unit] =
     for {
       _ <- FT.start // returns immediately
@@ -59,6 +61,7 @@ object Example extends SafeApp {
 
   // Our `TelnetD` configuration specifies a lot of things by default, in a `Properties` sadly, but
   // at least the important bits (shell type and port) can be specified safely. This will get better.
+  // The type argument `Example` is the wrapper class defined above.
   val config = Config[Example](6666)
 
   // Given a `Config` we can interpret our `TelnetDIO` program into `IO`, which is what we need to

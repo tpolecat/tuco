@@ -2,6 +2,7 @@ package tuco.shell
 
 import tuco.free._
 import tuco.free.{ connection => FC }
+import tuco.free.connection.ConnectionIO
 import tuco.hi.{ connection => HC }
 import tuco.util._
 
@@ -18,25 +19,25 @@ object Builtins {
 
   def exit[A] = Command[A](
     ":exit", "Exit the shell.",
-    Parser.pure(L.done[A].liftEndoT(_=> true))
+    Parser.pure(L.done[A] =>>= { a => true.point[ConnectionIO] })
   )
 
   def history[A] = Command[A](
     ":history", "Show command history.",
-    Parser.pure(L.history[A].endoT_[FC.ConnectionIO] { h =>
+    Parser.pure(L.history[A] =>>= { h =>
       h.toList.reverse.zipWithIndex.traverseU { case (s, n) =>
         HC.writeLn(s"$n: $s")
-      }
+      } .as(h) : ConnectionIO[Session.History] // ascription needed :-\
     })
   )
 
   def help[A] = Command[A](
     ":help", "Show command help.",
-    Parser.pure(L.commands[A].endoT_[FC.ConnectionIO] { cs =>
+    Parser.pure(L.commands[A] =>>= { cs =>
       val infos = cs.toList.sortBy(_.name)
       val w = infos.map(_.name.length).max + 3 // TODO: use kiama/PP
       HC.writeLn("Available commands: <command> -h for more info.") *>
-      infos.traverseU(i => HC.writeLn("  " + i.name.padTo(w, ' ') + i.desc))
+      infos.traverseU(i => HC.writeLn("  " + i.name.padTo(w, ' ') + i.desc)).as(cs)
     })
   )
 
