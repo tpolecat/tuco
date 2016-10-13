@@ -9,19 +9,15 @@ object Example extends SafeApp {
 
   // A shell command for a telnet server that carries user-defined state of type Int. Arguments
   // are the command name, a help string, and an optparse-applicative
-  // Parser[Session[Int] => ConnectionIO[Session[Int]]]; i.e., a parser that yields an effectful
-  // state transition, which is how we define a command's implementation.
-  val add: Command[Int] =
-    Command(
-      "add", "Add a number to the current count.",
-      intArgument(metavar("<number>"), help("Number to add.")).map { n => // the Int we parsed
-        // We need to construct a Session[Int] => ConnectionIO[Session[Int]] here but we only care
-        // about the `data` member so we lens down and lift an Int => ConnectionIO[Int].
-        L.data[Int] =>>= { data =>
-          HC.writeLn(s"${data} + $n = ${data + n}").as(data + n)
-        }
-      }
-    )
+  // Parser[Int => ConnectionIO[Int]]; i.e., a parser that yields an effectful
+  // state transition, which is how we define a command's implementation. We then use `zoom` to
+  // widen `Int` to `Session[Int]` which is what we need to construct a `Commands`.
+  val add = Command(
+    "add", "Add a number to the current count.",
+    intArgument(metavar("<number>"), help("Number to add.")).map { n =>
+       (data: Int) => HC.writeLn(s"${data} + $n = ${data + n}").as(data + n)
+    }
+  ).zoom(L.data[Int])
 
   // Our initial `CommandShell` state, which is a `Session` whose `data` slot carries an `Int`.
   // Available commands are the builtins (:help, :history, :exit) plus our `add` command defined

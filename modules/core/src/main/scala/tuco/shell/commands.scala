@@ -11,18 +11,10 @@ import net.bmjames.opts. { Parser => _, _}
 import net.bmjames.opts.types._
 
 /**
- * Metadata and implementation of a shell command.
- * @param name The name of the command, as you expect it to be typed by the user. `ls` for example.
- * @param desc A description of the command. `Lists files in the curren directory` for example.
- * @param parser An optparse-applicative `Parser` yielding a effectful state transition.
- */
-case class Command[A](name: String, desc: String, parser: Parser[Session[A] => ConnectionIO[Session[A]]])
-
-/**
  * A list of `Command` values for a given session type, with methods to interpret an input string,
  * yielding an effectful state transition.
  */
-case class Commands[A](toList: List[Command[A]]) {
+case class Commands[A](toList: List[Command[ConnectionIO, Session[A]]]) {
 
   // Split a string into a list of tokens, possibly wrapped in double-quotes
   private val R = """"([^"]*)"|(\S+)""".r
@@ -67,7 +59,7 @@ object Commands {
     Commands(Nil)
 
   /** Construct an empty `Commands` with the given command values. */
-  def apply[A](is: Command[A]*): Commands[A] =
+  def apply[A](is: Command[ConnectionIO, Session[A]]*): Commands[A] =
     Commands(is.toList)
 
   implicit def CommandsMonoid[A]: Monoid[Commands[A]] =

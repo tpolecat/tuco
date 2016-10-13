@@ -8,7 +8,7 @@ object imports {
 
   type SafeShell   = shell.SafeShell
   type Session[A]  = shell.Session[A]
-  type Command[A]  = shell.Command[A]
+  type Command[F[_], A]  = shell.Command[F, A]
   type Commands[A] = shell.Commands[A]
 
   val Session      = shell.Session
