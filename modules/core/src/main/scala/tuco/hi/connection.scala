@@ -22,7 +22,18 @@ object connection {
     write(s + CRLF)
 
   /** Read given a prompt and history. */
-  def readLn(prompt: String, history: Zipper[String] = NonEmptyList("").toZipper, mask: Option[Char] = None): FC.ConnectionIO[String] =
-    liftBT(HBT.readLn(prompt, history, mask))
+  def readLn(
+    prompt: String,
+    history: Zipper[String] = NonEmptyList("").toZipper,
+    mask: Option[Char] = None,
+    completions: List[String] = Nil
+  ): FC.ConnectionIO[String] =
+    liftBT(HBT.readLn(prompt, history, mask, completions))
+
+  val getRows: FC.ConnectionIO[Int] =
+    liftBT(FBT.getRows)
+
+  val getColumns: FC.ConnectionIO[Int] =
+    liftBT(FBT.getColumns)
 
 }

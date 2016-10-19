@@ -24,7 +24,8 @@ object CommandShell {
       s.point[FC.ConnectionIO]
     } else {
       def cmd(c: String) = s.commands.interp(c)(s).flatMap(s => run(c :: s))
-      HC.readLn(s.prompt, s.history.toZipper).flatMap {
+      val cs = s.commands.toList.map(_.name)
+      HC.readLn(s.prompt, history = s.history.toZipper, completions = cs).flatMap {
         case Bang(c) => s.history.recall(c).fold(eventNotFound.as(s))(cmd)
         case c       => cmd(c)
       }

@@ -8,7 +8,7 @@ import scalaz._, Scalaz._, scalaz.effect._
 object basicterminalio {
 
   // not a zipper because there is not necessarily a focus
-  case class LineState(head: String, tail: String, history: Zipper[String]) {
+  case class LineState(head: String, tail: String, history: Zipper[String], completions: List[String]) {
     def insert(c: Char) = copy(head + c, tail)
     def offset    = head.length
     def done      = head + tail
@@ -23,11 +23,12 @@ object basicterminalio {
     def kill      = copy(head, "")
     def up        = history.previous.map(z => copy(z.focus, "", history = z))
     def down      = history.next.map(z => copy(z.focus, "", history = z))
+    def complete(c: String) = copy(head = c, tail = "")
   }
 
   private val NoHistory = NonEmptyList("").toZipper
 
-  def readLn(prompt: String, history: Zipper[String] = NoHistory, mask: Option[Char] = None): FBT.BasicTerminalIOIO[String] = {
+  def readLn(prompt: String, history: Zipper[String], mask: Option[Char], completions: List[String]): FBT.BasicTerminalIOIO[String] = {
     import net.wimpi.telnetd.io.BasicTerminalIO.{ COLORINIT => CTRL_A, _ }
 
     def writeMC(c: Char): FBT.BasicTerminalIOIO[Unit] =
@@ -100,6 +101,23 @@ object basicterminalio {
             FBT.restoreCursor    *> go(s0)
           )
 
+        case TABULATOR =>
+          completions.filter(_.startsWith(s.head)) match {
+            case Nil      => go(s)
+            case c :: Nil =>
+              FBT.eraseToEndOfLine           *>
+              writeMS(c.drop(s.head.length)) *> go(s.complete(c))
+            case cs       => // TODO: prompt if more than N completions
+              FBT.write(CRLF)             *>
+              FBT.write(cs.mkString(" ")) *> // TODO: this, better
+              FBT.write(CRLF)             *>
+              FBT.write(prompt)           *>
+              writeMS(s.head)             *>
+              FBT.storeCursor             *>
+              writeMS(s.tail)             *>
+              FBT.restoreCursor           *> go(s)
+          }
+
         case n =>
           // println("*** code: " + n)
           writeMC(n.toChar)   *>
@@ -112,7 +130,7 @@ object basicterminalio {
     FBT.write(prompt)        *>
     FBT.storeCursor          *>
     writeMS(history.focus)   *>
-    FBT.restoreCursor        *> go(LineState("", history.focus, history))
+    FBT.restoreCursor        *> go(LineState("", history.focus, history, completions))
 
   }
 
