@@ -27,8 +27,14 @@ object basicterminalio {
 
   private val NoHistory = NonEmptyList("").toZipper
 
-  def readLn(prompt: String, history: Zipper[String] = NoHistory): FBT.BasicTerminalIOIO[String] = {
+  def readLn(prompt: String, history: Zipper[String] = NoHistory, mask: Option[Char] = None): FBT.BasicTerminalIOIO[String] = {
     import net.wimpi.telnetd.io.BasicTerminalIO.{ COLORINIT => CTRL_A, _ }
+
+    def writeMC(c: Char): FBT.BasicTerminalIOIO[Unit] =
+      mask.fold(FBT.write(c))(FBT.write)
+
+    def writeMS(s: String): FBT.BasicTerminalIOIO[Unit] =
+      mask.fold(FBT.write(s))(FBT.write(_).replicateM_(s.length))
 
     val KILL = 11
     val FORWARD_DELETE = 1305
@@ -42,14 +48,14 @@ object basicterminalio {
           s.up.fold(go(s)) { s0 =>
             FBT.moveLeft(s.offset)      *>
             FBT.eraseToEndOfLine        *>
-            FBT.write(s0.head)          *> go(s0)
+            writeMS(s0.head)            *> go(s0)
           }
 
         case DOWN =>
           s.down.fold(go(s)) { s0 =>
             FBT.moveLeft(s.offset)      *>
             FBT.eraseToEndOfLine        *>
-            FBT.write(s0.head)          *> go(s0)
+            writeMS(s0.head)            *> go(s0)
           }
 
         case LEFT =>
@@ -79,7 +85,7 @@ object basicterminalio {
             FBT.moveLeft(1)      *>
             FBT.eraseToEndOfLine *>
             FBT.storeCursor      *>
-            FBT.write(s0.tail)   *>
+            writeMS(s0.tail)     *>
             FBT.restoreCursor    *> go(s0)
           }
 
@@ -90,22 +96,22 @@ object basicterminalio {
           s.delete.fold(go(s))(s0 =>
             FBT.eraseToEndOfLine *>
             FBT.storeCursor      *>
-            FBT.write(s0.tail)   *>
+            writeMS(s0.tail)     *>
             FBT.restoreCursor    *> go(s0)
           )
 
         case n =>
-          println("*** code: " + n)
-          FBT.write(n.toChar) *>
+          // println("*** code: " + n)
+          writeMC(n.toChar)   *>
           FBT.storeCursor     *>
-          FBT.write(s.tail)   *>
+          writeMS(s.tail)     *>
           FBT.restoreCursor   *> go(s.insert(n.toChar))
         }
 
     // go!
     FBT.write(prompt)        *>
     FBT.storeCursor          *>
-    FBT.write(history.focus) *>
+    writeMS(history.focus)   *>
     FBT.restoreCursor        *> go(LineState("", history.focus, history))
 
   }

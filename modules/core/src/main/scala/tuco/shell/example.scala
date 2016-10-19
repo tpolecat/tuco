@@ -35,6 +35,7 @@ object Example extends SafeApp {
     for {
       _ <- HC.writeLn("Welcome to the Tuco demo.")
       n <- HC.readLn("Your Name? ")
+      _ <- HC.readLn("Password? ", mask = Some('*'))
       _ <- HC.writeLn(s"Hello $n. Initial count is ${initialState.data}")
       f <- CommandShell.run(initialState)
       _ <- HC.writeLn("Goodbye. Final count was " + f.data)
