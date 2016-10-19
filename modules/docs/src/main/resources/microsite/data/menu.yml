@@ -1,0 +1,17 @@
+options:
+  - title: Command Shell Example
+    url: index.html
+    section: intro
+  #
+  # - title: Configuring the Microsite
+  #   url: settings.html
+  #
+  # - title: Layouts
+  #   url: layouts.html
+  #   section: resources
+  #
+  # - title: Customize
+  #   url: customize.html
+  #
+  # - title: Build the microsite
+  #   url: build-the-microsite.html

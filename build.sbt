@@ -1,4 +1,4 @@
-import UnidocKeys._
+// import UnidocKeys._
 import ReleaseTransformations._
 
 lazy val buildSettings = Seq(
@@ -86,8 +86,8 @@ lazy val tuco = project
   .in(file("."))
   .settings(tucoSettings)
   .settings(noPublishSettings)
-  .dependsOn(wimpi, core)
-  .aggregate(wimpi, core)
+  .dependsOn(wimpi, core, docs)
+  .aggregate(wimpi, core, docs)
 
 lazy val core = project
   .in(file("modules/core"))
@@ -104,6 +104,7 @@ lazy val core = project
     )
   )
 
+
 lazy val wimpi = project
   .in(file("modules/wimpi"))
   .settings(
@@ -118,3 +119,12 @@ lazy val docs = project
   .settings(tucoSettings)
   .settings(noPublishSettings)
   .dependsOn(core)
+  .enablePlugins(MicrositesPlugin)
+  .settings(
+    micrositeName             := "tuco",
+    micrositeDescription      := "Reasonable telnet server for Scala.",
+    micrositeAuthor           := "Rob Norris",
+    micrositeGithubOwner      := "tpolecat",
+    micrositeGithubRepo       := "doobie",
+    micrositeDocumentationUrl := "/docs"
+  )
