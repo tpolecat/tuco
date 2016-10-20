@@ -7,8 +7,13 @@ import scalaz._, Scalaz._, scalaz.effect._
 
 object basicterminalio {
 
+  type Completer = String => FBT.BasicTerminalIOIO[String \/ List[String]]
+  object Completer {
+    val empty: Completer = _ => (nil[String]).right.point[FBT.BasicTerminalIOIO]
+  }
+
   // not a zipper because there is not necessarily a focus
-  case class LineState(head: String, tail: String, history: Zipper[String], completions: List[String]) {
+  case class LineState(head: String, tail: String, history: Zipper[String], complete: Completer) {
     def insert(c: Char) = copy(head + c, tail)
     def offset    = head.length
     def done      = head + tail
@@ -23,12 +28,12 @@ object basicterminalio {
     def kill      = copy(head, "")
     def up        = history.previous.map(z => copy(z.focus, "", history = z))
     def down      = history.next.map(z => copy(z.focus, "", history = z))
-    def complete(c: String) = copy(head = c, tail = "")
+    def comp(c: String) = copy(head = head + c, tail = "")
   }
 
   private val NoHistory = NonEmptyList("").toZipper
 
-  def readLn(prompt: String, history: Zipper[String], mask: Option[Char], completions: List[String]): FBT.BasicTerminalIOIO[String] = {
+  def readLn(prompt: String, history: Zipper[String], mask: Option[Char], complete: Completer): FBT.BasicTerminalIOIO[String] = {
     import net.wimpi.telnetd.io.BasicTerminalIO.{ COLORINIT => CTRL_A, _ }
 
     def writeMC(c: Char): FBT.BasicTerminalIOIO[Unit] =
@@ -102,20 +107,22 @@ object basicterminalio {
           )
 
         case TABULATOR =>
-          completions.filter(_.startsWith(s.head)) match {
-            case Nil      => go(s)
-            case c :: Nil =>
-              FBT.eraseToEndOfLine           *>
-              writeMS(c.drop(s.head.length)) *> go(s.complete(c))
-            case cs       => // TODO: prompt if more than N completions
-              FBT.write(CRLF)             *>
-              FBT.write(cs.mkString(" ")) *> // TODO: this, better
-              FBT.write(CRLF)             *>
-              FBT.write(prompt)           *>
-              writeMS(s.head)             *>
-              FBT.storeCursor             *>
-              writeMS(s.tail)             *>
-              FBT.restoreCursor           *> go(s)
+          complete(s.head) flatMap {
+            case -\/(suf) => FBT.eraseToEndOfLine *> writeMS(suf) *> go(s.comp(suf))
+            case \/-(Nil) => go(s)
+            case \/-(cs)  =>
+              // TODO: prompt if more than N completions
+              for {
+                _ <- FBT.write(CRLF)
+                n <- FBT.getColumns
+                _ <- columnize(cs, n).traverseU(s => FBT.write(s) *> FBT.write(CRLF))
+                _ <- FBT.write(prompt)
+                _ <- writeMS(s.head)
+                _ <- FBT.storeCursor
+                _ <- writeMS(s.tail)
+                _ <- FBT.restoreCursor
+                a <- go(s)
+              } yield a
           }
 
         case n =>
@@ -130,8 +137,17 @@ object basicterminalio {
     FBT.write(prompt)        *>
     FBT.storeCursor          *>
     writeMS(history.focus)   *>
-    FBT.restoreCursor        *> go(LineState("", history.focus, history, completions))
+    FBT.restoreCursor        *> go(LineState("", history.focus, history, complete))
 
   }
+
+  private def columnize(ss: List[String], width: Int): List[String] = {
+    val cw = ss.foldRight(0)(_.length max _) + 2 // the width of each column
+    val cn = (width / cw) max 1                  // number of columns
+    val rs = (ss.length / cn) + 1                  // number of rows
+    val cs = ss.grouped(rs).toList.map(_.map(_.padTo(cw, ' ').mkString).padTo(rs, ""))
+    cs.transpose.map(_.mkString)
+  }
+
 
 }

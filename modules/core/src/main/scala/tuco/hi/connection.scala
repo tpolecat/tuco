@@ -26,9 +26,9 @@ object connection {
     prompt: String,
     history: Zipper[String] = NonEmptyList("").toZipper,
     mask: Option[Char] = None,
-    completions: List[String] = Nil
+    complete: HBT.Completer = HBT.Completer.empty
   ): FC.ConnectionIO[String] =
-    liftBT(HBT.readLn(prompt, history, mask, completions))
+    liftBT(HBT.readLn(prompt, history, mask, complete))
 
   val getRows: FC.ConnectionIO[Int] =
     liftBT(FBT.getRows)

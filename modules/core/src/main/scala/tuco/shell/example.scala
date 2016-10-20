@@ -16,7 +16,8 @@ object Example extends SafeApp {
     "add", "Add a number to the current count.",
     intArgument(metavar("<number>"), help("Number to add.")).map { n =>
        (data: Int) => HC.writeLn(s"${data} + $n = ${data + n}").as(data + n)
-    }
+    },
+    (n: Int, s: String) => List.fill(1000)(util.Random.nextInt(10000).toString).filter(_.startsWith(s)).point[ConnectionIO]
   ).zoom(L.data[Int])
 
   // Our initial `CommandShell` state, which is a `Session` whose `data` slot carries an `Int`.
