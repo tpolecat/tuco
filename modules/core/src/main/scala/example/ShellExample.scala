@@ -41,18 +41,8 @@ object ShellExample extends SafeApp {
       _ <- writeLn("Goodbye. Final count was " + f.data)
     } yield ()
 
-  // Because the old TelnetD insists on doing everything with reflection we have to wrap our
-  // above definition in a new class with an empty constructor. This restriction will go away.
-  class Example extends SafeShell(interact)
-
-  // Our `TelnetD` configuration specifies a lot of things by default, in a `Properties` sadly, but
-  // at least the important bits (shell type and port) can be specified safely. This will get better.
-  // The type argument `Example` is the wrapper class defined above.
-  val config = Config[Example](6666)
-
-  // Given a `Config` we can interpret our `TelnetDIO` program into `IO`, which is what we need to
-  // implement `runc`. So now we're done.
+  // Simple server on the given port.
   override def runc: IO[Unit] =
-    config.run(simpleServer)
+    Config(interact, 6666).run(simpleServer)
 
 }

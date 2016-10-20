@@ -33,16 +33,8 @@ object GuessingGame extends SafeApp {
       case Some(n) => SessionIO.pure(n)
     }
 
-  // The underlying Java code relies on reflection to instantiate sessions, so we need to wrap
-  // our session in a new class that extends SafeShell. This implementation leakage will go away.
-  class GameClass extends SafeShell(game)
-
-  // Our configuration is parameterized on the session class. The only config value we can provide
-  // right now is the port. Other things will be available soon.
-  val config = Config[GameClass](6666)
-
-  // With our config we can run a trivial server. This is our program's entry point.
+  // Simple server on the given port.
   override def runc: IO[Unit] =
-    config.run(simpleServer)
+    Config(game, 6666).run(simpleServer)
 
 }

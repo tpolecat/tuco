@@ -37,6 +37,8 @@ import net.wimpi.telnetd.net.PortListener;
 import net.wimpi.telnetd.shell.ShellManager;
 import net.wimpi.telnetd.util.PropertiesLoader;
 import net.wimpi.telnetd.util.StringUtil;
+import tuco.util.JavaConfig;
+
 import java.util.logging.Logger;
 
 
@@ -136,8 +138,9 @@ public class TelnetD {
    *         passed in properties, and is ready to start serving.
    * @throws BootException if the setup process fails.
    */
-  public static TelnetD createTelnetD(Properties main)  throws BootException {
-      TelnetD td = new TelnetD(ShellManager.createShellManager(main), TerminalManager.createTerminalManager(main));
+  public static TelnetD createTelnetD(JavaConfig config)  throws BootException {
+      Properties main = config.properties();
+      TelnetD td = new TelnetD(new ShellManager(config.factories()), TerminalManager.createTerminalManager(main));
       String[] listnames = StringUtil.split(main.getProperty("listeners"), ",");
     for (String listname : listnames) {
       td.prepareListener(listname, main);
