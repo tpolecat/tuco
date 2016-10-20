@@ -1,6 +1,7 @@
 package tuco.util
 
 import tuco.free.telnetd._
+import tuco.free.connection._
 
 import net.wimpi.telnetd.TelnetD
 import scalaz._, Scalaz._, scalaz.effect._
@@ -82,6 +83,5 @@ trait DefaultConfig {
       "std.connectionfilter"     -> "none"
 
     ))
-
 
 }

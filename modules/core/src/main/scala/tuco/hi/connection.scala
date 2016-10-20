@@ -1,6 +1,6 @@
 package tuco.hi
 
-import tuco.free.{ connection      => FC }
+import tuco.free.{ connection => FC }
 import tuco.free.{ basicterminalio => FBT }
 import tuco.hi.{ basicterminalio => HBT }
 
