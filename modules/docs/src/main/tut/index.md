@@ -2,10 +2,6 @@
 layout: home
 title:  "Home"
 section: "home"
-technologies:
- - first: ["Scala", "sbt-microsites plugin is completely written in Scala"]
- - second: ["SBT", "sbt-microsites plugin uses SBT and other sbt plugins to generate microsites easily"]
- - third: ["Jekyll", "Jekyll allows for the transformation of plain text into static websites and blogs."]
 ---
 
 This is a slightly cleaned-up fork of the prehistoric [`net.wimpi.telnetd`](http://telnetd.sourceforge.net/) with a pure API in the style of [doobie](https://github.com/tpolecat/doobie). It lets you embed a telnet server in your application in a reasonable way.
