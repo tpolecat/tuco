@@ -9,8 +9,6 @@ This is a slightly cleaned-up fork of the prehistoric [`net.wimpi.telnetd`](http
 
 Why would you want to do this? Dunno. Laziness? It's easier than writing a web UI or dealing with `curl` and sometimes it's really all you need for a backdoor engineering interface.
 
-**Tuco** lets you do arbitrary stuff, but the most common usage is to provide a set of commands with options defined via [scala-optparse-applicative](https://github.com/bmjames/scala-optparse-applicative) (included) and use the provided `CommandShell` which provides command history, okay line editing, and good help facilities.
-
 ### Quick Start
 
 **Tuco** is available for **Scala 2.10** and **2.11** with

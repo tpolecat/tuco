@@ -104,7 +104,6 @@ lazy val core = project
     )
   )
 
-
 lazy val wimpi = project
   .in(file("modules/wimpi"))
   .settings(
@@ -122,9 +121,19 @@ lazy val docs = project
   .enablePlugins(MicrositesPlugin)
   .settings(
     micrositeName             := "tuco",
-    micrositeDescription      := "Reasonable telnet server for Scala.",
+    micrositeDescription      := "A reasonable telnet server for Scala.",
     micrositeAuthor           := "Rob Norris",
     micrositeGithubOwner      := "tpolecat",
     micrositeGithubRepo       := "doobie",
-    micrositeDocumentationUrl := "/docs"
+    micrositeDocumentationUrl := "/docs/",
+    micrositePalette := Map(
+      "brand-primary"     -> "#0B6E0B",
+      "brand-secondary"   -> "#084D08",
+      "brand-tertiary"    -> "#053605",
+      "gray-dark"         -> "#453E46",
+      "gray"              -> "#837F84",
+      "gray-light"        -> "#E3E2E3",
+      "gray-lighter"      -> "#F4F3F4",
+      "white-color"       -> "#FFFFFF"
+    )
   )

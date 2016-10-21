@@ -1,6 +1,6 @@
 ---
 layout: docs
-title: Getting Started
+title: Tab Completion
 ---
 
 blah

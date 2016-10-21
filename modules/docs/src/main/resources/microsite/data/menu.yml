@@ -1,17 +1,19 @@
 options:
-  - title: Command Shell Example
+
+  - title: Getting Started
     url: index.html
-    section: intro
-  #
-  # - title: Configuring the Microsite
-  #   url: settings.html
-  #
-  # - title: Layouts
-  #   url: layouts.html
-  #   section: resources
-  #
-  # - title: Customize
-  #   url: customize.html
-  #
-  # - title: Build the microsite
-  #   url: build-the-microsite.html
+
+  - title: Hello World
+    url: hello-world.html
+
+  - title: A Guessing Game
+    url: guessing-game.html
+
+  - title: User Login
+    url: login.html
+
+  - title: Command Shell To-Do List
+    url: todo-list.html
+
+  - title: Tab Competion
+    url: completion.html
