@@ -113,6 +113,12 @@ lazy val wimpi = project
   .settings(tucoSettings)
   .settings(publishSettings)
 
+lazy val example = project
+  .in(file("modules/example"))
+  .settings(tucoSettings)
+  .settings(noPublishSettings)
+  .dependsOn(core)
+
 lazy val docs = project
   .in(file("modules/docs"))
   .settings(tucoSettings)

@@ -40,7 +40,7 @@ case class Commands[A](toList: List[Command[ConnectionIO, Session[A]]]) {
    */
   def interpT(c: String, args: List[String]): Session[A] => ConnectionIO[Session[A]] =
     toList.filter(_.name.startsWith(c)) match {
-      case Nil      => s => HC.writeLn("Unknown command. Try ':help' for help.").as(s)
+      case Nil      => s => HC.writeLn("Unknown command. Try 'help' for help.").as(s)
       case i :: Nil =>
         val pinfo  = info(i.parser <*> helper, progDesc(i.desc))
         val pprefs = prefs(idm[PrefsMod])
