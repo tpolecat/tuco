@@ -9,13 +9,15 @@ import scalaz._, Scalaz._
 package object tuco {
 
   // Type Aliases
-  type SessionIO[A]     = FC.ConnectionIO[A]
-  type ServerIO[A]      = FT.TelnetDIO[A]
   type SafeShell        = shell.SafeShell
   type Session[A]       = shell.Session[A]
   type Command[F[_], A] = shell.Command[F, A]
   type Commands[A]      = shell.Commands[A]
   type Config           = util.Config
+  type Color            = util.Color
+
+  // N.B. type SessionIO is defined in SessionIOFunctions to circumvent SI-7139
+  // N.B. type ServerIO  is defined in ServerIOFunctions  to circumvent SI-7139
 
   // Companion Aliases
   val Session      = shell.Session
@@ -24,5 +26,6 @@ package object tuco {
   val Builtins     = shell.Builtins
   val CommandShell = shell.CommandShell
   val Config       = util.Config
+  val Color        = util.Color
 
 }

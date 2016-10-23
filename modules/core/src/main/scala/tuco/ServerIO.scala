@@ -18,6 +18,9 @@ object ServerIO extends ServerIOFunctions {
 
 trait ServerIOFunctions {
 
+  // N.B. this alias cannot appear in the package object due to SI-7139
+  type ServerIO[A]  = tuco.free.telnetd.TelnetDIO[A]
+
   val startServer: ServerIO[Unit] = FT.start
 
   val stopServer:  ServerIO[Unit] = FT.stop

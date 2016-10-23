@@ -149,5 +149,4 @@ object basicterminalio {
     cs.transpose.map(_.mkString)
   }
 
-
 }

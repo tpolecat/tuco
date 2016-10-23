@@ -22,6 +22,9 @@ object SessionIO extends SessionIOFunctions {
 
 trait SessionIOFunctions {
 
+  // N.B. this alias cannot appear in the package object due to SI-7139
+  type SessionIO[A] = tuco.free.connection.ConnectionIO[A]
+
   def write(s: String): SessionIO[Unit] =
     HC.write(s)
 
