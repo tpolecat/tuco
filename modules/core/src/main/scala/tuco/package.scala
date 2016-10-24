@@ -15,6 +15,7 @@ package object tuco {
   type Commands[A]      = shell.Commands[A]
   type Config           = util.Config
   type Color            = util.Color
+  type Expect           = util.Expect
 
   // N.B. type SessionIO is defined in SessionIOFunctions to circumvent SI-7139
   // N.B. type ServerIO  is defined in ServerIOFunctions  to circumvent SI-7139
@@ -27,5 +28,6 @@ package object tuco {
   val CommandShell = shell.CommandShell
   val Config       = util.Config
   val Color        = util.Color
+  val Expect       = util.Expect
 
 }

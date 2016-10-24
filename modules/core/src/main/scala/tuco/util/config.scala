@@ -9,8 +9,9 @@ import net.wimpi.telnetd.shell.Shell
 import scala.collection.JavaConverters._
 import scalaz._, Scalaz._, scalaz.effect._
 
-import tuco.free.telnetd._
-import tuco.free.connection._
+import tuco.free.{ telnetd => FT }
+import tuco.free.telnetd.TelnetDIO
+import tuco.free.connection.ConnectionIO
 import tuco.shell.SafeShell
 
 case class Config(
@@ -22,6 +23,12 @@ case class Config(
   timeToTimedout: Int = 60000,
   housekeepingInterval: Int = 1000
 ) {
+
+  def start: IO[IO[Unit]] =
+    for {
+      t <- newTelnetD
+      _ <- FT.start.transK[IO].run(t)
+    } yield FT.stop.transK[IO].run(t)
 
   def run[A](ma: TelnetDIO[A]): IO[A] =
     newTelnetD.flatMap(ma.transK[IO].run)

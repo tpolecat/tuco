@@ -15,7 +15,7 @@ import scalaz._, Scalaz._, Ordering._
 import tuco._, Tuco._
 ```
 
-This time our behavior is a bit different. We say hello and goodbye much a before, but the main gameplay is delegated to a `loop` program that we will define later.
+This time our behavior is a bit different. We say hello and goodbye much a before, but the main gameplay is delegated to a `loop` program that we will define later. (If you're following along in the REPL skip this definition until we have defined `loop`.)
 
 ```tut:invisible
 // hidden forward definition
@@ -23,10 +23,10 @@ def loop(answer: Int, guesses: Int): SessionIO[Unit] = null
 ```
 
 ```tut:silent
-val game: SessionIO[Unit] =
+def game(r: Random): SessionIO[Unit] =
   for {
     _ <- writeLn("Welcome to the guessing game!")
-    a <- SessionIO.delay(Random.nextInt(10) + 1)
+    a <- SessionIO.delay(r.nextInt(10) + 1)
     _ <- writeLn("I have chosen a number between 1 and 10, what is it?")
     _ <- loop(a, 1) // guessing loop with initial turn count of 1
     _ <- writeLn("Goodbye.")
@@ -35,7 +35,7 @@ val game: SessionIO[Unit] =
 
 Note that the random number generation is a side-effect, which we must capture via the `SessionIO.delay` operation. This gives us an FFI to the unsafe part of the language analogous to scalaz `Task.delay` or `IO.apply`.
 
-Because we will be reading an `Int` from the user, we need to provide a program that knows how to do this. So we define the following program that prompts the user, attempts to parse the input, and either returns the value or reports and error and tries again.
+Because we will be reading an `Int` from the user, we need to provide a program that knows how to do this. So we define the following program that prompts the user, attempts to parse the input, and either returns the value or reports an error and tries again.
 
 ```tut:silent
 def readInt(prompt: String): SessionIO[Int] =
@@ -57,35 +57,52 @@ def loop(answer: Int, guesses: Int): SessionIO[Unit] =
   }
 ```
 
-Our behavior is now fully specified and we can run our `simpleServer` as before.
+```tut:invisible
+// redefine
+def game(r: Random): SessionIO[Unit] =
+  for {
+    _ <- writeLn("Welcome to the guessing game!")
+    a <- SessionIO.delay(r.nextInt(10) + 1)
+    _ <- writeLn("I have chosen a number between 1 and 10, what is it?")
+    _ <- loop(a, 1) // guessing loop with initial turn count of 1
+    _ <- writeLn("Goodbye.")
+  } yield ()
+```
+
+Our game is fully implemented and we can define the server config.
+
+```tut:silent
+val conf = Config(game(new Random(123L)), 6666)
+```
+
+```tut:invisible
+// define this before starting the server to ensure it compiles
+val test = {
+  Expect(conf)
+    .expect("Your guess? ").sendLn("five")
+    .expect("Your guess? ").sendLn("5")
+    .expect("Your guess? ").sendLn("3")
+    .expect("Goodbye.")
+    .test
+}
 
 ```
-scala> Config(game, 6666).run(simpleServer).unsafePerformIO
-Press <enter> to exit...
-Oct 23, 2016 1:15:02 PM net.wimpi.telnetd.net.PortListener run
-INFO: Listening to Port 6,666 with a connectivity queue size of 5.
+
+Start the server up.
+
+```tut
+val stop = conf.start.unsafePerformIO
 ```
 
-When we connect via telnet we can play our game.
+We can now connect on port 6666 via telnet and enjoy our fabulous game.
 
+```tut:evaluated
+// run our test and ensure the server stops; the call to stop below is a no-op
+println(test.ensuring(stop).unsafePerformIO)
 ```
-$ telnet localhost 6666
-Trying ::1...
-Connected to localhost.
-Escape character is '^]'.
-Welcome to the guessing game!
-I have chosen a number between 1 and 10, what is it?
-Your guess? three
-That's not a number! Try again.
-Your guess? 3
-Nope, higher!
-Your guess? 7
-Nope, lower!
-Your guess? 5
-Nope, lower!
-Your guess? 4
-Right! It took 4 tries.
-Goodbye.
-Connection closed by foreign host.
-$
+
+Shut the server down when you're done playing.
+
+```tut
+stop.unsafePerformIO
 ```

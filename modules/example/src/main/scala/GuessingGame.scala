@@ -8,10 +8,10 @@ import tuco._, Tuco._
 object GuessingGame extends SafeApp {
 
   // A guessing game.
-  val game: SessionIO[Unit] =
+  def game(r: Random): SessionIO[Unit] =
     for {
       _ <- writeLn("Welcome to the guessing game!")
-      a <- SessionIO.delay(Random.nextInt(10) + 1)
+      a <- SessionIO.delay(r.nextInt(10) + 1)
       _ <- writeLn("I have chosen a number between 1 and 10, what is it?")
       _ <- loop(a, 1) // guessing loop with initial turn count of 1
       _ <- writeLn("Goodbye.")
@@ -35,6 +35,6 @@ object GuessingGame extends SafeApp {
 
   // Simple server on the given port.
   override def runc: IO[Unit] =
-    Config(game, 6666).run(simpleServer)
+    Config(game(new Random), 6666).run(simpleServer)
 
 }
