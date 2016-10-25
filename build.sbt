@@ -130,8 +130,9 @@ lazy val docs = project
     micrositeDescription      := "Tuco is a reasonable telnet server for Scala.",
     micrositeAuthor           := "Rob Norris",
     micrositeGithubOwner      := "tpolecat",
-    micrositeGithubRepo       := "doobie",
-    micrositeDocumentationUrl := "/docs/",
+    micrositeGithubRepo       := "tuco",
+    micrositeBaseUrl          := "/tuco",
+    micrositeDocumentationUrl := "/tuco/docs/",
     micrositeHighlightTheme   := "color-brewer",
     micrositePalette := Map(
       "brand-primary"     -> "#0B6E0B",
