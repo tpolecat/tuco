@@ -1,0 +1,86 @@
+<html><head><meta charset="utf-8" /><meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" /><title>tuco</title><meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="description" content="Tuco is a reasonable telnet server for Scala." /><meta name="author" content="Rob Norris" /><meta name="og:image" content="/img/poster.png" /><meta name="og:title" content="tuco" /><meta name="og:site_name" content="tuco" /><meta name="og:url" content="" /><meta name="og:type" content="website" /><meta name="og:description" content="Tuco is a reasonable telnet server for Scala." /><meta name="twitter:image" content="/img/poster.png" /><meta name="twitter:card" content="summary_large_image" /><meta name="twitter:site" content="" /><link rel="icon" type="image/png" href="/img/favicon.png" /><link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" /><link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css" /><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.6.0/styles/color-brewer.min.css" /><link rel="stylesheet" href="/css/style.css" /><link rel="stylesheet" href="/css/palette.css" /></head><body class="docs"><div id="wrapper"><div id="sidebar-wrapper"><ul id="sidebar" class="sidebar-nav"><li class="sidebar-brand"><a href="/" class="brand"><div class="brand-wrapper" style="background:url('/img/sidebar_brand.png') no-repeat"><span>tuco</span></div></a></li>  <li><a href="/docs/index.html" class="">How to Learn</a>  <li><a href="/docs/hello-world.html" class="">Hello World</a>  <li><a href="/docs/guessing-game.html" class=" active ">A Guessing Game</a>  <li><a href="/docs/todo-list.html" class="">Command Shell To-Do List</a> </li></ul></div><div id="page-content-wrapper"><div class="nav"><div class="container-fluid"><div class="row"><div class="col-lg-12"><div class="action-menu pull-left clearfix"><a href="#menu-toggle" id="menu-toggle"><i class="fa fa-bars" aria-hidden="true"></i></a></div><ul class="pull-right"><li class="hidden-xs"><a href="https://github.com/tpolecat/tuco"><i class="fa fa-eye"></i><span>WATCH<span id="eyes" class="label label-default">--</span></span></a></li><li class="hidden-xs"><a href="https://github.com/tpolecat/tuco"><i class="fa fa-star-o"></i><span>STARS<span id="stars" class="label label-default">--</span></span></a></li><li><a href="#" onclick="shareSiteTwitter('tuco Tuco is a reasonable telnet server for Scala.');"><i class="fa fa-twitter"></i></a></li><li><a href="#" onclick="shareSiteFacebook('tuco Tuco is a reasonable telnet server for Scala.');"><i class="fa fa-facebook"></i></a></li><li><a href="#" onclick="shareSiteGoogle();"><i class="fa fa-google-plus"></i></a></li></ul></div></div></div></div><div id="content" data-github-owner="tpolecat" data-github-repo="tuco"><div class="content-wrapper"><section><p><em>The program described here is also available as <code class="highlighter-rouge">GuessingGame.scala</code> in the <code class="highlighter-rouge">examples</code> project.</em></p>
+
+<h2 id="a-guessing-game">A Guessing Game</h2>
+
+<p>For our next <strong>Tuco</strong> program we will build a telnet server that plays a guessing game with the user. We will need some additional imports.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">import</span> <span class="nn">scala.util.Random</span>
+<span class="k">import</span> <span class="nn">scalaz._</span><span class="o">,</span> <span class="nc">Scalaz</span><span class="o">.</span><span class="k">_</span><span class="o">,</span> <span class="nc">Ordering</span><span class="o">.</span><span class="k">_</span>
+<span class="k">import</span> <span class="nn">tuco._</span><span class="o">,</span> <span class="nc">Tuco</span><span class="o">.</span><span class="k">_</span>
+</code></pre>
+</div>
+
+<p>This time our behavior is a bit different. We say hello and goodbye much a before, but the main gameplay is delegated to a <code class="highlighter-rouge">loop</code> program that we will define later. (If you’re following along in the REPL skip this definition until we have defined <code class="highlighter-rouge">loop</code>.)</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="n">game</span><span class="o">(</span><span class="n">r</span><span class="k">:</span> <span class="kt">Random</span><span class="o">)</span><span class="k">:</span> <span class="kt">SessionIO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span>
+  <span class="k">for</span> <span class="o">{</span>
+    <span class="k">_</span> <span class="k">&lt;-</span> <span class="n">writeLn</span><span class="o">(</span><span class="s">"Welcome to the guessing game!"</span><span class="o">)</span>
+    <span class="n">a</span> <span class="k">&lt;-</span> <span class="nc">SessionIO</span><span class="o">.</span><span class="n">delay</span><span class="o">(</span><span class="n">r</span><span class="o">.</span><span class="n">nextInt</span><span class="o">(</span><span class="mi">10</span><span class="o">)</span> <span class="o">+</span> <span class="mi">1</span><span class="o">)</span>
+    <span class="k">_</span> <span class="k">&lt;-</span> <span class="n">writeLn</span><span class="o">(</span><span class="s">"I have chosen a number between 1 and 10, what is it?"</span><span class="o">)</span>
+    <span class="k">_</span> <span class="k">&lt;-</span> <span class="n">loop</span><span class="o">(</span><span class="n">a</span><span class="o">,</span> <span class="mi">1</span><span class="o">)</span> <span class="c1">// guessing loop with initial turn count of 1
+</span>    <span class="k">_</span> <span class="k">&lt;-</span> <span class="n">writeLn</span><span class="o">(</span><span class="s">"Goodbye."</span><span class="o">)</span>
+  <span class="o">}</span> <span class="k">yield</span> <span class="o">()</span>
+</code></pre>
+</div>
+
+<p>Note that the random number generation is a side-effect, which we must capture via the <code class="highlighter-rouge">SessionIO.delay</code> operation. This gives us an FFI to the unsafe part of the language analogous to scalaz <code class="highlighter-rouge">Task.delay</code> or <code class="highlighter-rouge">IO.apply</code>.</p>
+
+<p>Because we will be reading an <code class="highlighter-rouge">Int</code> from the user, we need to provide a program that knows how to do this. So we define the following program that prompts the user, attempts to parse the input, and either returns the value or reports an error and tries again.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="n">readInt</span><span class="o">(</span><span class="n">prompt</span><span class="k">:</span> <span class="kt">String</span><span class="o">)</span><span class="k">:</span> <span class="kt">SessionIO</span><span class="o">[</span><span class="kt">Int</span><span class="o">]</span> <span class="k">=</span>
+  <span class="n">readLn</span><span class="o">(</span><span class="n">prompt</span><span class="o">).</span><span class="n">map</span><span class="o">(</span><span class="k">_</span><span class="o">.</span><span class="n">parseInt</span><span class="o">).</span><span class="n">flatMap</span> <span class="o">{</span>
+    <span class="k">case</span> <span class="nc">Failure</span><span class="o">(</span><span class="k">_</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="n">writeLn</span><span class="o">(</span><span class="s">"That's not a number! Try again."</span><span class="o">)</span> <span class="o">*&gt;</span> <span class="n">readInt</span><span class="o">(</span><span class="n">prompt</span><span class="o">)</span>
+    <span class="k">case</span> <span class="nc">Success</span><span class="o">(</span><span class="n">n</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="nc">SessionIO</span><span class="o">.</span><span class="n">pure</span><span class="o">(</span><span class="n">n</span><span class="o">)</span>
+  <span class="o">}</span>
+</code></pre>
+</div>
+
+<p>With that out of the way we can implement our game loop. We read an <code class="highlighter-rouge">Int</code> then compare it with our answer, either giving the user a clue and looping, or congratulating the user if the guess is correct.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="n">loop</span><span class="o">(</span><span class="n">answer</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">guesses</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span><span class="k">:</span> <span class="kt">SessionIO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span>
+  <span class="n">readInt</span><span class="o">(</span><span class="s">"Your guess? "</span><span class="o">).</span><span class="n">map</span><span class="o">(</span><span class="k">_</span> <span class="n">cmp</span> <span class="n">answer</span><span class="o">).</span><span class="n">flatMap</span> <span class="o">{</span>
+    <span class="k">case</span> <span class="nc">LT</span> <span class="k">=&gt;</span> <span class="n">writeLn</span><span class="o">(</span><span class="s">"Nope, higher!"</span><span class="o">)</span> <span class="o">*&gt;</span> <span class="n">loop</span><span class="o">(</span><span class="n">answer</span><span class="o">,</span> <span class="n">guesses</span> <span class="o">+</span> <span class="mi">1</span><span class="o">)</span>
+    <span class="k">case</span> <span class="nc">GT</span> <span class="k">=&gt;</span> <span class="n">writeLn</span><span class="o">(</span><span class="s">"Nope, lower!"</span><span class="o">)</span>  <span class="o">*&gt;</span> <span class="n">loop</span><span class="o">(</span><span class="n">answer</span><span class="o">,</span> <span class="n">guesses</span> <span class="o">+</span> <span class="mi">1</span><span class="o">)</span>
+    <span class="k">case</span> <span class="nc">EQ</span> <span class="k">=&gt;</span> <span class="k">if</span> <span class="o">(</span><span class="n">guesses</span> <span class="o">==</span> <span class="mi">1</span><span class="o">)</span> <span class="n">writeLn</span><span class="o">(</span><span class="s">"Good guess! You won on the first try!"</span><span class="o">)</span>
+               <span class="k">else</span>              <span class="n">writeLn</span><span class="o">(</span><span class="n">s</span><span class="s">"Right! It took $guesses tries."</span><span class="o">)</span>
+  <span class="o">}</span>
+</code></pre>
+</div>
+
+<p>Our game is fully implemented and we can define the server config.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">conf</span> <span class="k">=</span> <span class="nc">Config</span><span class="o">(</span><span class="n">game</span><span class="o">(</span><span class="k">new</span> <span class="nc">Random</span><span class="o">(</span><span class="mi">123L</span><span class="o">)),</span> <span class="mi">6666</span><span class="o">)</span>
+</code></pre>
+</div>
+
+<p>Start the server up.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">stop</span> <span class="k">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">start</span><span class="o">.</span><span class="n">unsafePerformIO</span>
+<span class="n">stop</span><span class="k">:</span> <span class="kt">scalaz.effect.IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span> <span class="n">scalaz</span><span class="o">.</span><span class="n">effect</span><span class="o">.</span><span class="nc">IO$$anon$6</span><span class="k">@</span><span class="mi">2</span><span class="n">a0264f7</span>
+</code></pre>
+</div>
+
+<p>We can now connect on port 6666 via telnet and enjoy our fabulous game.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ telnet localhost 6666
+Trying ::1...
+Connected to localhost.
+Escape character is '^]'.
+Welcome to the guessing game!
+I have chosen a number between 1 and 10, what is it?
+Your guess? five
+That's not a number! Try again.
+Your guess? 5
+Nope, lower!
+Your guess? 3
+Right! It took 2 tries.
+Goodbye.
+</code></pre>
+</div>
+
+<p>Shut the server down when you’re done playing.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="n">stop</span><span class="o">.</span><span class="n">unsafePerformIO</span>
+</code></pre>
+</div>
+</section></div></div></div></div><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.6.0/highlight.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.6.0/languages/scala.min.js"></script><script src="/js/main.js"></script></body></html>

@@ -1,0 +1,282 @@
+<html><head><meta charset="utf-8" /><meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" /><title>tuco</title><meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="description" content="Tuco is a reasonable telnet server for Scala." /><meta name="author" content="Rob Norris" /><meta name="og:image" content="/img/poster.png" /><meta name="og:title" content="tuco" /><meta name="og:site_name" content="tuco" /><meta name="og:url" content="" /><meta name="og:type" content="website" /><meta name="og:description" content="Tuco is a reasonable telnet server for Scala." /><meta name="twitter:image" content="/img/poster.png" /><meta name="twitter:card" content="summary_large_image" /><meta name="twitter:site" content="" /><link rel="icon" type="image/png" href="/img/favicon.png" /><link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" /><link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css" /><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.6.0/styles/color-brewer.min.css" /><link rel="stylesheet" href="/css/style.css" /><link rel="stylesheet" href="/css/palette.css" /></head><body class="docs"><div id="wrapper"><div id="sidebar-wrapper"><ul id="sidebar" class="sidebar-nav"><li class="sidebar-brand"><a href="/" class="brand"><div class="brand-wrapper" style="background:url('/img/sidebar_brand.png') no-repeat"><span>tuco</span></div></a></li>  <li><a href="/docs/index.html" class="">How to Learn</a>  <li><a href="/docs/hello-world.html" class="">Hello World</a>  <li><a href="/docs/guessing-game.html" class="">A Guessing Game</a>  <li><a href="/docs/todo-list.html" class=" active ">Command Shell To-Do List</a> </li></ul></div><div id="page-content-wrapper"><div class="nav"><div class="container-fluid"><div class="row"><div class="col-lg-12"><div class="action-menu pull-left clearfix"><a href="#menu-toggle" id="menu-toggle"><i class="fa fa-bars" aria-hidden="true"></i></a></div><ul class="pull-right"><li class="hidden-xs"><a href="https://github.com/tpolecat/tuco"><i class="fa fa-eye"></i><span>WATCH<span id="eyes" class="label label-default">--</span></span></a></li><li class="hidden-xs"><a href="https://github.com/tpolecat/tuco"><i class="fa fa-star-o"></i><span>STARS<span id="stars" class="label label-default">--</span></span></a></li><li><a href="#" onclick="shareSiteTwitter('tuco Tuco is a reasonable telnet server for Scala.');"><i class="fa fa-twitter"></i></a></li><li><a href="#" onclick="shareSiteFacebook('tuco Tuco is a reasonable telnet server for Scala.');"><i class="fa fa-facebook"></i></a></li><li><a href="#" onclick="shareSiteGoogle();"><i class="fa fa-google-plus"></i></a></li></ul></div></div></div></div><div id="content" data-github-owner="tpolecat" data-github-repo="tuco"><div class="content-wrapper"><section><p><em>The program described here is also available as <code class="highlighter-rouge">TodoList.scala</code> in the <code class="highlighter-rouge">examples</code> project.</em></p>
+
+<h2 id="command-shell-to-do-list">Command Shell To-Do List</h2>
+
+<p>In this tutorial we will step things up a bit by introducing the <strong>Command Shell</strong> API, which provides a way to define behavior that works like a Unix shell, with commands, help, history, tab completion, and so on.</p>
+
+<h3 id="preliminaries">Preliminaries</h3>
+
+<p>First let’s deal with imports. Note that we’re importing the contents <code class="highlighter-rouge">net.bmjames.opts</code> from the <a href="https://github.com/bmjames/scala-optparse-applicative"><strong>scala-optparse-applicative</strong></a> library, which is included as a dependency of <strong>Tuco</strong>. We will use this functionality to define <em>parsers</em> for our commands.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">import</span> <span class="nn">net.bmjames.opts._</span>
+<span class="k">import</span> <span class="nn">scalaz._</span><span class="o">,</span> <span class="nc">Scalaz</span><span class="o">.</span><span class="k">_</span><span class="o">,</span> <span class="n">scalaz</span><span class="o">.</span><span class="n">effect</span><span class="o">.</span><span class="k">_</span>
+<span class="k">import</span> <span class="nn">tuco._</span><span class="o">,</span> <span class="nc">Tuco</span><span class="o">.</span><span class="k">_</span>
+</code></pre>
+</div>
+
+<p>Our application will manage a to-do list, providing the user with commands to add, delete, clear, and display the list. Our <code class="highlighter-rouge">Todo</code> type just wraps a <code class="highlighter-rouge">String</code> for now. As an exercise you may wish to add other fields (and commands to manipulate them).</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">case</span> <span class="k">class</span> <span class="nc">Todo</span><span class="o">(</span><span class="n">text</span><span class="k">:</span> <span class="kt">String</span><span class="o">)</span>
+</code></pre>
+</div>
+
+<p>Let’s define some type aliases to ease things along.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">type</span> <span class="kt">TodoState</span> <span class="o">=</span> <span class="nc">List</span><span class="o">[</span><span class="kt">Todo</span><span class="o">]</span>
+<span class="k">object</span> <span class="nc">TodoState</span> <span class="o">{</span>
+  <span class="k">val</span> <span class="n">empty</span> <span class="k">=</span> <span class="nc">Nil</span>
+<span class="o">}</span>
+
+<span class="k">type</span> <span class="kt">TodoAction</span>  <span class="o">=</span> <span class="nc">TodoState</span> <span class="k">=&gt;</span> <span class="nc">SessionIO</span><span class="o">[</span><span class="kt">TodoState</span><span class="o">]</span>
+</code></pre>
+</div>
+
+<p>Let’s decode these a bit.</p>
+
+<ul>
+  <li>Our <code class="highlighter-rouge">TodoState</code> represents the behavior-specific state that this server will manage for each user session. Here it’s just a list of to-do items.</li>
+  <li>A <code class="highlighter-rouge">TodoAction</code> is a state transition that takes the current state and computes a new state, perhaps performing <code class="highlighter-rouge">SessionIO</code> actions as well.</li>
+</ul>
+
+<h3 id="the-game-plan">The Game Plan</h3>
+
+<p>We will define our telnet behavior in three steps.</p>
+
+<ol>
+  <li>We will first define <code class="highlighter-rouge">TodoAction</code>s that encapsulate the “business logic” of our commands.</li>
+  <li>We will construct <em>parsers</em> that construct these actions. This is how we translates something the user types into a program we can run.</li>
+  <li>We will construct an initial session state that includes our commands, a prompt string, our [initially empty] to-do list. From here the shell implementation is provided for us.</li>
+</ol>
+
+<h3 id="defining-our-actions">Defining our Actions</h3>
+
+<p>A <code class="highlighter-rouge">TodoAction</code> is an effectful state transition that takes a <code class="highlighter-rouge">TodoState</code> (a list of to-do items) and computes a new state, perhaps interacting with the user via <code class="highlighter-rouge">SessionIO</code> effects.</p>
+
+<p>Our first action will insert a new item at offset <code class="highlighter-rouge">i</code> in the to-do list. By using <code class="highlighter-rouge">patch</code> we make this operation safe for out-of-bounds indices. The implementation has no <code class="highlighter-rouge">SessionIO</code> effect; it simply computes the new state.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="n">add</span><span class="o">(</span><span class="n">index</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">text</span><span class="k">:</span> <span class="kt">String</span><span class="o">)</span><span class="k">:</span> <span class="kt">TodoAction</span> <span class="o">=</span> <span class="n">ts</span> <span class="k">=&gt;</span>
+  <span class="n">ts</span><span class="o">.</span><span class="n">patch</span><span class="o">(</span><span class="n">index</span><span class="o">,</span> <span class="nc">List</span><span class="o">(</span><span class="nc">Todo</span><span class="o">(</span><span class="n">text</span><span class="o">)),</span> <span class="mi">0</span><span class="o">).</span><span class="n">point</span><span class="o">[</span><span class="kt">SessionIO</span><span class="o">]</span>
+</code></pre>
+</div>
+
+<p>Our next action deletes the to-do item at the given index. Here we check the index and either point the computed state or complain to the user that the index is out of bound and return the state unchanged.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="n">delete</span><span class="o">(</span><span class="n">index</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span><span class="k">:</span> <span class="kt">TodoAction</span> <span class="o">=</span> <span class="o">{</span> <span class="n">ts</span> <span class="k">=&gt;</span>
+  <span class="k">if</span> <span class="o">(</span><span class="n">ts</span><span class="o">.</span><span class="n">isDefinedAt</span><span class="o">(</span><span class="n">index</span><span class="o">))</span> <span class="n">ts</span><span class="o">.</span><span class="n">patch</span><span class="o">(</span><span class="n">index</span><span class="o">,</span> <span class="nc">Nil</span><span class="o">,</span> <span class="mi">1</span><span class="o">).</span><span class="n">point</span><span class="o">[</span><span class="kt">SessionIO</span><span class="o">]</span>
+  <span class="k">else</span> <span class="n">writeLn</span><span class="o">(</span><span class="n">s</span><span class="s">"No such todo!"</span><span class="o">).</span><span class="n">as</span><span class="o">(</span><span class="n">ts</span><span class="o">)</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<p>Our action that clears the list prompts the user to confirm, and returns either <code class="highlighter-rouge">Nil</code> or the current state depending on the user’s answer.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">clear</span><span class="k">:</span> <span class="kt">TodoAction</span> <span class="o">=</span> <span class="n">ts</span> <span class="k">=&gt;</span>
+  <span class="n">readLn</span><span class="o">(</span><span class="s">"Are you sure (yes/no)? "</span><span class="o">).</span><span class="n">map</span><span class="o">(</span><span class="k">_</span><span class="o">.</span><span class="n">trim</span><span class="o">.</span><span class="n">toLowerCase</span><span class="o">).</span><span class="n">map</span> <span class="o">{</span>
+    <span class="k">case</span> <span class="s">"yes"</span> <span class="k">=&gt;</span> <span class="nc">Nil</span>
+    <span class="k">case</span> <span class="k">_</span>     <span class="k">=&gt;</span> <span class="n">ts</span>
+  <span class="o">}</span>
+</code></pre>
+</div>
+
+<p>To display the to-do list to the user we number them, then truncate the resulting string at the terminal’s column limit in order to avoid wrapping. In the real world you might incorporate a word-wrapping algorithm here.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">list</span><span class="k">:</span> <span class="kt">TodoAction</span> <span class="o">=</span> <span class="n">ts</span> <span class="k">=&gt;</span>
+  <span class="k">for</span> <span class="o">{</span>
+    <span class="n">cs</span> <span class="k">&lt;-</span> <span class="n">getColumns</span>
+    <span class="n">ss</span>  <span class="k">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">zipWithIndex</span><span class="o">.</span><span class="n">map</span> <span class="o">{</span> <span class="k">case</span> <span class="o">(</span><span class="nc">Todo</span><span class="o">(</span><span class="n">s</span><span class="o">),</span> <span class="n">n</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="n">f</span><span class="s">"${n + 1}%3d. $s"</span><span class="o">.</span><span class="n">take</span><span class="o">(</span><span class="n">cs</span><span class="o">)</span> <span class="o">}</span>
+    <span class="k">_</span>  <span class="k">&lt;-</span> <span class="n">ss</span><span class="o">.</span><span class="n">traverseU</span><span class="o">(</span><span class="n">writeLn</span><span class="o">)</span>
+  <span class="o">}</span> <span class="k">yield</span> <span class="n">ts</span>
+</code></pre>
+</div>
+
+<p>We have now defined our four actions. Next we will define <em>commands</em> that give our actions a textual representation for our users.</p>
+
+<h3 id="defining-commands">Defining Commands</h3>
+
+<p><code class="highlighter-rouge">Command[F[_], A]</code> is a data type with four fields:</p>
+
+<ol>
+  <li>A <strong>name</strong>, which is simply a <code class="highlighter-rouge">String</code> like <code class="highlighter-rouge">"add"</code> or <code class="highlighter-rouge">"delete"</code>.</li>
+  <li>A <strong>description</strong>, which is a <code class="highlighter-rouge">String</code> that will be used to generate help documentation.</li>
+  <li>A <strong>parser</strong> that consumes <code class="highlighter-rouge">String</code> command arguments and returns an state transition <code class="highlighter-rouge">A =&gt; F[A]</code> for some arbitrary effect and state type (such as our actions above).</li>
+  <li>An optional <strong>tab completer</strong> for expanding command arguments when the user hits the Tab key. We will not use tab completion in this exercise.</li>
+</ol>
+
+<p>Let’s walk through the first command slowly to be sure it all makes sense.</p>
+
+<h3 id="implementing-the-add-command">Implementing the Add Command</h3>
+
+<p>Recall the <code class="highlighter-rouge">add</code> action we defined above.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="n">add</span><span class="o">(</span><span class="n">index</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">text</span><span class="k">:</span> <span class="kt">String</span><span class="o">)</span><span class="k">:</span> <span class="kt">TodoAction</span> <span class="o">=</span> <span class="n">ts</span> <span class="k">=&gt;</span>
+  <span class="n">ts</span><span class="o">.</span><span class="n">patch</span><span class="o">(</span><span class="n">index</span><span class="o">,</span> <span class="nc">List</span><span class="o">(</span><span class="nc">Todo</span><span class="o">(</span><span class="n">text</span><span class="o">)),</span> <span class="mi">0</span><span class="o">).</span><span class="n">point</span><span class="o">[</span><span class="kt">SessionIO</span><span class="o">]</span>
+</code></pre>
+</div>
+
+<p>In order to call this action we need to parse two arguments from the commandline that the user types in: the index and the text. And in order to generate useful help documentation we need to provide some metadata about what the options mean. This is exactly what the <a href="https://github.com/bmjames/scala-optparse-applicative"><strong>scala-optparse-applicative</strong></a> library does, so <strong>Tuco</strong> relies on it directly.</p>
+
+<p>Here is the parser for our <code class="highlighter-rouge">index</code> argument.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">ind</span><span class="k">:</span> <span class="kt">Parser</span><span class="o">[</span><span class="kt">Int</span><span class="o">]</span> <span class="k">=</span>
+  <span class="n">intOption</span><span class="o">(</span>
+    <span class="n">help</span><span class="o">(</span><span class="s">"List index where the todo should appear."</span><span class="o">),</span>
+    <span class="n">short</span><span class="o">(</span><span class="sc">'i'</span><span class="o">),</span>
+    <span class="n">long</span><span class="o">(</span><span class="s">"index"</span><span class="o">),</span>
+    <span class="n">metavar</span><span class="o">(</span><span class="s">"&lt;index&gt;"</span><span class="o">),</span>
+    <span class="n">value</span><span class="o">(</span><span class="mi">1</span><span class="o">)</span>
+  <span class="o">).</span><span class="n">map</span><span class="o">(</span><span class="k">_</span> <span class="o">-</span> <span class="mi">1</span><span class="o">)</span> <span class="c1">// 1-based for the user, 0-based internally
+</span></code></pre>
+</div>
+
+<p>We call <code class="highlighter-rouge">intOption</code> which constructs a <code class="highlighter-rouge">Parser[Int]</code> whose behavior is defined by the provided sequence of modifiers:</p>
+
+<ul>
+  <li>A <code class="highlighter-rouge">help</code> string describing the option.</li>
+  <li>A <code class="highlighter-rouge">short</code> option flag. This means we can say <code class="highlighter-rouge">-i 42</code>.</li>
+  <li>A <code class="highlighter-rouge">long</code> option flag. This means we can say <code class="highlighter-rouge">--index 42</code>.</li>
+  <li>A <code class="highlighter-rouge">metavar</code> for the generated help string (see below).</li>
+  <li>A default value of <code class="highlighter-rouge">1</code>, if the user doesn’t specify.</li>
+</ul>
+
+<p>The second argument to <code class="highlighter-rouge">add</code> is the to-do item text, which is an arbitrary string. In our command this will be a required <em>argument</em> so we use <code class="highlighter-rouge">strArgument</code> to construct its parser.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">txt</span><span class="k">:</span> <span class="kt">Parser</span><span class="o">[</span><span class="kt">String</span><span class="o">]</span> <span class="k">=</span>
+  <span class="n">strArgument</span><span class="o">(</span><span class="n">help</span><span class="o">(</span><span class="s">"Todo item text."</span><span class="o">),</span> <span class="n">metavar</span><span class="o">(</span><span class="s">"\"&lt;text&gt;\""</span><span class="o">))</span>
+</code></pre>
+</div>
+
+<p>We now have what we need to construct a <code class="highlighter-rouge">Command</code>. We combine the parsers with <code class="highlighter-rouge">|@|</code> to yield a <code class="highlighter-rouge">Parser[TodoAction]</code> which is what we need for the third construtor argument.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">addCommand</span><span class="k">:</span> <span class="kt">Command</span><span class="o">[</span><span class="kt">SessionIO</span>, <span class="kt">TodoState</span><span class="o">]</span> <span class="k">=</span>
+  <span class="nc">Command</span><span class="o">(</span><span class="s">"add"</span><span class="o">,</span> <span class="s">"Add a new todo."</span><span class="o">,</span> <span class="o">(</span><span class="n">ind</span> <span class="o">|@|</span> <span class="n">txt</span><span class="o">)(</span><span class="n">add</span><span class="o">))</span>
+</code></pre>
+</div>
+
+<h3 id="generalizing-our-state">Generalizing our State</h3>
+
+<p>We have defined a command that is specific to our domain model: the state type we are passing is <code class="highlighter-rouge">TodoState</code>. But the command shell also has other state that it passes along, including the user prompt, command history, and the list of available commands. <em>All of this state is available to our commands.</em> But for now we only need our domain-specific hunk.</p>
+
+<p>The state passed by the command shell is called <code class="highlighter-rouge">Session[A]</code> where the domain-specific hunk is passed via the <code class="highlighter-rouge">data</code> field of type <code class="highlighter-rouge">A</code>. So what we really need in order to make our command compatible with the shell machinery is a <code class="highlighter-rouge">Command[SessionIO, Session[TodoState]]</code>. We can do this by applying the <code class="highlighter-rouge">zoom</code> operator that lenses down from the <code class="highlighter-rouge">Session</code> to the <code class="highlighter-rouge">TodoState</code>.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">addCommand</span><span class="k">:</span> <span class="kt">Command</span><span class="o">[</span><span class="kt">SessionIO</span>, <span class="kt">Session</span><span class="o">[</span><span class="kt">TodoState</span><span class="o">]]</span> <span class="k">=</span> <span class="o">{</span>
+  <span class="nc">Command</span><span class="o">(</span><span class="s">"add"</span><span class="o">,</span> <span class="s">"Add a new todo."</span><span class="o">,</span> <span class="o">(</span><span class="n">ind</span> <span class="o">|@|</span> <span class="n">txt</span><span class="o">)(</span><span class="n">add</span><span class="o">))</span>
+    <span class="o">.</span><span class="n">zoom</span><span class="o">(</span><span class="nc">Session</span><span class="o">.</span><span class="n">L</span><span class="o">.</span><span class="n">data</span><span class="o">[</span><span class="kt">TodoState</span><span class="o">])</span> <span class="c1">// Session.L is a module of lenses
+</span><span class="o">}</span>
+</code></pre>
+</div>
+
+<p>This is our final <code class="highlighter-rouge">addCommand</code> implementation.</p>
+
+<h3 id="implementing-the-remaining-commands">Implementing the Remaining Commands</h3>
+
+<p>The <code class="highlighter-rouge">delete</code> command takes a single argument so it’s reasonable to write the parser inline.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">deleteCommand</span> <span class="k">=</span> <span class="o">{</span>
+  <span class="nc">Command</span><span class="o">(</span><span class="s">"delete"</span><span class="o">,</span> <span class="s">"Delete the specified item."</span><span class="o">,</span>
+    <span class="n">intArgument</span><span class="o">(</span>
+      <span class="n">help</span><span class="o">(</span><span class="s">"Todo item to delete."</span><span class="o">),</span>
+      <span class="n">metavar</span><span class="o">(</span><span class="s">"&lt;index&gt;"</span><span class="o">)</span>
+    <span class="o">).</span><span class="n">map</span><span class="o">(</span><span class="n">n</span> <span class="k">=&gt;</span> <span class="n">delete</span><span class="o">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="o">)))</span>
+    <span class="o">.</span><span class="n">zoom</span><span class="o">(</span><span class="nc">Session</span><span class="o">.</span><span class="n">L</span><span class="o">.</span><span class="n">data</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">Todo</span><span class="o">]])</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<p>The list and clear commands takes no arguments at all, so the parsers are simply lifted values.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">listCommand</span> <span class="k">=</span> <span class="o">{</span>
+  <span class="nc">Command</span><span class="o">(</span><span class="s">"list"</span><span class="o">,</span> <span class="s">"List the todo items."</span><span class="o">,</span> <span class="n">list</span><span class="o">.</span><span class="n">point</span><span class="o">[</span><span class="kt">Parser</span><span class="o">])</span>
+    <span class="o">.</span><span class="n">zoom</span><span class="o">(</span><span class="nc">Session</span><span class="o">.</span><span class="n">L</span><span class="o">.</span><span class="n">data</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">Todo</span><span class="o">]])</span>
+<span class="o">}</span>
+
+<span class="k">val</span> <span class="n">clearCommand</span> <span class="k">=</span> <span class="o">{</span>
+  <span class="nc">Command</span><span class="o">(</span><span class="s">"clear"</span><span class="o">,</span> <span class="s">"Clears the todo list."</span><span class="o">,</span> <span class="n">clear</span><span class="o">.</span><span class="n">point</span><span class="o">[</span><span class="kt">Parser</span><span class="o">])</span>
+    <span class="o">.</span><span class="n">zoom</span><span class="o">(</span><span class="nc">Session</span><span class="o">.</span><span class="n">L</span><span class="o">.</span><span class="n">data</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">Todo</span><span class="o">]])</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h3 id="putting-it-all-together">Putting it All Together</h3>
+
+<p>Now that we have defined our commands all that is remaining is to construct our initial session state to pass to <code class="highlighter-rouge">runShell</code>. We construct an initial <code class="highlighter-rouge">Session</code> with an empty to-do list, a custom command prompt, and a set of commands that includes <code class="highlighter-rouge">Builtins</code> which gives us our <code class="highlighter-rouge">help</code>, <code class="highlighter-rouge">history</code>, and <code class="highlighter-rouge">exit</code> commands.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="nc">TodoCommands</span> <span class="k">=</span> <span class="nc">Commands</span><span class="o">(</span><span class="n">addCommand</span><span class="o">,</span> <span class="n">deleteCommand</span><span class="o">,</span> <span class="n">listCommand</span><span class="o">,</span> <span class="n">clearCommand</span><span class="o">)</span>
+
+<span class="k">val</span> <span class="n">initialState</span><span class="k">:</span> <span class="kt">Session</span><span class="o">[</span><span class="kt">TodoState</span><span class="o">]</span> <span class="k">=</span>
+  <span class="nc">Session</span><span class="o">.</span><span class="n">initial</span><span class="o">(</span><span class="nc">TodoState</span><span class="o">.</span><span class="n">empty</span><span class="o">).</span><span class="n">copy</span><span class="o">(</span>
+    <span class="n">prompt</span>   <span class="k">=</span> <span class="s">"todo&gt; "</span><span class="o">,</span>
+    <span class="n">commands</span> <span class="k">=</span> <span class="nc">Builtins</span><span class="o">[</span><span class="kt">TodoState</span><span class="o">]</span> <span class="o">|+|</span> <span class="nc">TodoCommands</span>
+  <span class="o">)</span>
+</code></pre>
+</div>
+
+<p>Our session behavior greets the user and runs the command shell with our initial state, yielding the final state. We report the length of our list and then exit.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">todo</span><span class="k">:</span> <span class="kt">SessionIO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span>
+  <span class="k">for</span> <span class="o">{</span>
+    <span class="k">_</span> <span class="k">&lt;-</span> <span class="n">writeLn</span><span class="o">(</span><span class="s">"Welcome to TODO!"</span><span class="o">)</span>
+    <span class="n">s</span> <span class="k">&lt;-</span> <span class="n">runShell</span><span class="o">(</span><span class="n">initialState</span><span class="o">)</span>
+    <span class="k">_</span> <span class="k">&lt;-</span> <span class="n">writeLn</span><span class="o">(</span><span class="n">s</span><span class="s">"Exiting with ${s.data.length} item(s) on your list."</span><span class="o">)</span>
+  <span class="o">}</span> <span class="k">yield</span> <span class="o">()</span>
+</code></pre>
+</div>
+
+<p>Our configuration is as before.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">conf</span> <span class="k">=</span> <span class="nc">Config</span><span class="o">(</span><span class="n">todo</span><span class="o">,</span> <span class="mi">6666</span><span class="o">)</span>
+</code></pre>
+</div>
+
+<p>We can now run our to-do server and connect from another terminal window via <code class="highlighter-rouge">telnet</code>.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">stop</span> <span class="k">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">start</span><span class="o">.</span><span class="n">unsafePerformIO</span>
+<span class="n">stop</span><span class="k">:</span> <span class="kt">scalaz.effect.IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span> <span class="n">scalaz</span><span class="o">.</span><span class="n">effect</span><span class="o">.</span><span class="nc">IO$$anon$6</span><span class="k">@</span><span class="mi">24119</span><span class="n">a0e</span>
+</code></pre>
+</div>
+
+<p>Here is an example session.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>$ telnet localhost 6666
+Trying ::1...
+Connected to localhost.
+Escape character is '^]'.
+Welcome to TODO!
+todo&gt; help
+Available commands: &lt;command&gt; -h for more info.
+  add       Add a new todo.
+  clear     Clears the todo list.
+  delete    Delete the specified item.
+  exit      Exit the shell.
+  help      Show command help.
+  history   Show command history.
+  list      List the todo items.
+todo&gt; add -h
+Usage: add [-i|--index &lt;index&gt;] "&lt;text&gt;"
+  Add a new todo.
+
+Available options:
+  -h,--help                Show this help text
+  -i,--index &lt;index&gt;       List index where the todo should appear.
+  "&lt;text&gt;"                 Todo item text.
+todo&gt; add "Buy eggs."
+todo&gt; add "Wash the cat."
+todo&gt; list
+  1. Wash the cat.
+  2. Buy eggs.
+todo&gt; delete 42
+No such todo!
+todo&gt; clear
+Are you sure (yes/no)? yes
+todo&gt; list
+todo&gt; exit
+Exiting with 0 item(s) on your list.
+Connection closed by foreign host.
+</code></pre>
+</div>
+
+<p>Shut the server down when you’re done.</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="n">stop</span><span class="o">.</span><span class="n">unsafePerformIO</span>
+</code></pre>
+</div>
+</section></div></div></div></div><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.6.0/highlight.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.6.0/languages/scala.min.js"></script><script src="/js/main.js"></script></body></html>
