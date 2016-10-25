@@ -20,9 +20,9 @@ We define the behavior of our server as a value of type `SessionIO[Unit]`. The s
 ```tut:silent
 val hello: SessionIO[Unit] =
   for {
-    _ <- writeLn("Hello World!")             // write a CRLF-terminated line and flush
-    n <- readLn("What is your name? ")       // prompt and await input
-    _ <- writeLn(s"Hello $n, and goodbye!")  // write again, and we're done
+    _ <- writeLn("Hello World!")
+    n <- readLn("What is your name? ")
+    _ <- writeLn(s"Hello $n, and goodbye!")  
   } yield ()
 ```
 
@@ -51,7 +51,7 @@ val stop = conf.start.unsafePerformIO
 
 We can now connect to the server from another terminal window via `telnet`.
 
-```tut:evaluated
+```tut:evaluated:plain
 // run our test and ensure the server stops; the call to stop below is a no-op
 println(test.ensuring(stop).unsafePerformIO)
 ```

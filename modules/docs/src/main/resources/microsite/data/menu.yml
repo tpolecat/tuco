@@ -1,6 +1,6 @@
 options:
 
-  - title: Getting Started
+  - title: How to Learn
     url: index.html
 
   - title: Hello World
@@ -9,11 +9,5 @@ options:
   - title: A Guessing Game
     url: guessing-game.html
 
-  - title: User Login
-    url: login.html
-
   - title: Command Shell To-Do List
     url: todo-list.html
-
-  - title: Tab Competion
-    url: completion.html

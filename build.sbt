@@ -127,11 +127,12 @@ lazy val docs = project
   .enablePlugins(MicrositesPlugin)
   .settings(
     micrositeName             := "tuco",
-    micrositeDescription      := "A reasonable telnet server for Scala.",
+    micrositeDescription      := "Tuco is a reasonable telnet server for Scala.",
     micrositeAuthor           := "Rob Norris",
     micrositeGithubOwner      := "tpolecat",
     micrositeGithubRepo       := "doobie",
     micrositeDocumentationUrl := "/docs/",
+    micrositeHighlightTheme   := "color-brewer",
     micrositePalette := Map(
       "brand-primary"     -> "#0B6E0B",
       "brand-secondary"   -> "#084D08",
