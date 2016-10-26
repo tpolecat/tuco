@@ -24,7 +24,7 @@ libraryDependencies += "org.tpolecat" %% "tuco" % "0.1-SNAPSHOT"
 
 Obviously this is *very early software.* Please experiment and contribute code or suggestions, but don't rely on it for anything important yet unless you are prepared to rewrite things.
 
-Where from here? Maybe the exquisite and voluminous [**documentation**](/docs/)?
+Where from here? Maybe the exquisite and voluminous [**documentation**](http://tpolecat.github.io/tuco/docs/)?
 
 ### Probable FAQ
 
