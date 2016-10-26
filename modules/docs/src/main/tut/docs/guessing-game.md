@@ -77,14 +77,11 @@ val conf = Config(game(new Random(123L)), 6666)
 
 ```tut:invisible
 // define this before starting the server to ensure it compiles
-val test = {
-  Expect(conf)
-    .expect("Your guess? ").sendLn("five")
-    .expect("Your guess? ").sendLn("5")
-    .expect("Your guess? ").sendLn("3")
-    .expect("Goodbye.")
-    .test
-}
+val test = Expect(conf).dialog(
+  "Your guess? " -> "five",
+  "Your guess? " -> "5",
+  "Your guess? " -> "3"
+).expect("Goodbye.").test
 
 ```
 

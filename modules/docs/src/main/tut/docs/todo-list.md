@@ -228,31 +228,18 @@ We can now run our to-do server and connect from another terminal window via `te
 
 ```tut:invisible
 // define this before starting the server to ensure it compiles
-val test = {
-  Expect(conf)
-    .expect("todo> ")
-    .sendLn("help")
-    .expect("todo> ")
-    .sendLn("add -h")
-    .expect("todo> ")
-    .sendLn("""add \"Buy eggs.\"""")
-    .expect("todo> ")
-    .sendLn("""add \"Wash the cat.\"""")
-    .expect("todo> ")
-    .sendLn("list")
-    .expect("todo> ")
-    .sendLn("delete 42")
-    .expect("todo> ")
-    .sendLn("clear")
-    .expect("(yes/no)? ")
-    .sendLn("yes")
-    .expect("todo> ")
-    .sendLn("list")
-    .expect("todo> ")
-    .sendLn("exit")
-    .expect("in your to-do list.")
-    .test
-}
+val test = Expect(conf).dialog(
+  "todo> "     -> "help",
+  "todo> "     -> "add -h",
+  "todo> "     -> """add \"Buy eggs.\"""",
+  "todo> "     -> """add \"Wash the cat.\"""",
+  "todo> "     -> "list",
+  "todo> "     -> "delete 42",
+  "todo> "     -> "clear",
+  "(yes/no)? " -> "yes",
+  "todo> "     -> "list",
+  "todo> "     -> "exit"
+).expect("in your to-do list.").test
 ```
 
 ```tut

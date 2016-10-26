@@ -15,4 +15,8 @@ case class Expect(conf: Config, args: List[String] = Nil) {
   def expect(arg: String) = copy(args = args ++ List("-c", s"""expect "$arg""""))
   def send(arg: String)   = copy(args = args ++ List("-c", s"""send "$arg""""))
   def sendLn(arg: String) = send(arg + "\\r")
+
+  def dialog(ss: (String, String)*): Expect =
+    ss.foldLeft(this) { case (e, (a, b)) => e.expect(a).sendLn(b) }
+
 }

@@ -36,13 +36,9 @@ We can now start our server by running the `.start` action, which starts up the 
 
 ```tut:invisible
 // define this before starting the server to ensure it compiles
-val test = {
-  Expect(conf)
-    .expect("What is your name? ")
-    .sendLn("Bob")
-    .expect("Hello Bob, and goodbye!")
-    .test
-}
+val test = Expect(conf).dialog(
+  "What is your name? " -> "Bob"
+).expect("Hello Bob, and goodbye!").test
 ```
 
 ```tut
