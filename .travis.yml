@@ -1,9 +1,15 @@
 language: scala
+
 scala:
   - 2.11.8
   - 2.10.6
+
 jdk:
   - oraclejdk8
   - oraclejdk7
+
+before_install:
+  - sudo apt-get -qq update
+  - sudo apt-get install -y expect
 
 script: sbt ++$TRAVIS_SCALA_VERSION test tut

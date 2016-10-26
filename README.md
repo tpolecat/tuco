@@ -1,6 +1,8 @@
 
 ## Tuco
 
+[![Build Status](https://travis-ci.org/tpolecat/tuco.svg?branch=master)](https://travis-ci.org/tpolecat/tuco)
+
 A reasonable telnet server for Scala.
 
 > *"There are two kinds of spurs, my friend. Those that come in by the door … [and] those that come in by the window."*
