@@ -20,7 +20,7 @@ Sometimes it's easier to come in by the window. **Tuco** is a slightly cleaned-u
 Add the dependency to your `build.sbt` thus:
 
 ```scala
-libraryDependencies += "org.tpolecat" %% "tuco" % "0.1-SNAPSHOT"
+libraryDependencies += "org.tpolecat" %% "tuco" % "0.1.0"
 ```
 
 Obviously this is *very early software.* Please experiment and contribute code or suggestions, but don't rely on it for anything important yet unless you are prepared to rewrite things.
