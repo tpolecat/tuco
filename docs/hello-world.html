@@ -30,7 +30,7 @@
 <p>We can now start our server by running the <code class="highlighter-rouge">.start</code> action, which starts up the server and returns an <code class="highlighter-rouge">IO</code> action that we can use to stop the server.</p>
 
 <div class="highlighter-rouge"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">stop</span> <span class="k">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">start</span><span class="o">.</span><span class="n">unsafePerformIO</span>
-<span class="n">stop</span><span class="k">:</span> <span class="kt">scalaz.effect.IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span> <span class="n">scalaz</span><span class="o">.</span><span class="n">effect</span><span class="o">.</span><span class="nc">IO$$anon$6</span><span class="k">@</span><span class="mf">11f</span><span class="n">b99f</span>
+<span class="n">stop</span><span class="k">:</span> <span class="kt">scalaz.effect.IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span> <span class="n">scalaz</span><span class="o">.</span><span class="n">effect</span><span class="o">.</span><span class="nc">IO$$anon$6</span><span class="k">@</span><span class="mi">7</span><span class="n">c638f68</span>
 </code></pre>
 </div>
 
@@ -45,6 +45,8 @@ What is your name? Bob
 Hello Bob, and goodbye!
 </code></pre>
 </div>
+
+<p>Note that when you’re typing your name you can use cursor keys, backspace, forward delete with Ctrl+D, beginning/end of line with Ctrl+A/E and delete to end of line with Ctrl+K. <strong>Tuco</strong> provides this support via its <code class="highlighter-rouge">readLn</code> implementation.</p>
 
 <p>We can do this as many times as we like, with a the default maximum of 25 simultaneous connections. To terminate the server go back to the REPL and run the <code class="highlighter-rouge">stop</code> program.</p>
 
