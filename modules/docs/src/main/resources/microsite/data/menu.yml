@@ -1,13 +1,13 @@
 options:
 
   - title: How to Learn
-    url: index.html
+    url: docs/index.html
 
   - title: Hello World
-    url: hello-world.html
+    url: docs/hello-world.html
 
   - title: A Guessing Game
-    url: guessing-game.html
+    url: docs/guessing-game.html
 
   - title: Command Shell To-Do List
-    url: todo-list.html
+    url: docs/todo-list.html
