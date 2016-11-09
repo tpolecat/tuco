@@ -12,15 +12,15 @@ Sometimes it's easier to come in by the window. **Tuco** is a slightly cleaned-u
 
 ### Quick Start
 
-**Tuco** is available for **Scala 2.10** and **2.11** with
+**Tuco** is available for **Scala 2.10**, **2.11**, and **2.12** with
 
 - scalaz 7.2
-- scala-optparse-applicative 0.4
+- scala-optparse-applicative 0.5
 
 Add the dependency to your `build.sbt` thus:
 
 ```scala
-libraryDependencies += "org.tpolecat" %% "tuco" % "0.1.0"
+libraryDependencies += "org.tpolecat" %% "tuco" % "0.1.1"
 ```
 
 Obviously this is *very early software.* Please experiment and contribute code or suggestions, but don't rely on it for anything important yet unless you are prepared to rewrite things.
