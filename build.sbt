@@ -4,8 +4,16 @@ import ReleaseTransformations._
 lazy val buildSettings = Seq(
   organization := "org.tpolecat",
   licenses ++= Seq(("MIT", url("http://opensource.org/licenses/MIT"))),
-  scalaVersion := "2.11.8",
-  crossScalaVersions := Seq("2.10.6", scalaVersion.value, "2.12.0")
+  scalaVersion := "2.12.0",
+  crossScalaVersions := Seq("2.10.6", scalaVersion.value, "2.12.0"),
+  scalacOptions in (Compile, doc) ++= {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, v)) if v <= 11 =>
+        Nil
+      case _ =>
+        Seq("-no-java-comments")
+    }
+  }
 )
 
 lazy val commonSettings = Seq(
