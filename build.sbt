@@ -5,7 +5,7 @@ lazy val buildSettings = Seq(
   organization := "org.tpolecat",
   licenses ++= Seq(("MIT", url("http://opensource.org/licenses/MIT"))),
   scalaVersion := "2.11.8",
-  crossScalaVersions := Seq("2.10.6", scalaVersion.value)
+  crossScalaVersions := Seq("2.10.6", scalaVersion.value, "2.12.0")
 )
 
 lazy val commonSettings = Seq(
@@ -29,7 +29,7 @@ lazy val commonSettings = Seq(
     "-doc-source-url", "https://github.com/tpolecat/tuco/tree/v" + version.value + "€{FILE_PATH}.scala",
     "-skip-packages", "scalaz"
   ),
-  addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.8.0")
+  addCompilerPlugin("org.spire-math" % "kind-projector" % "0.9.3" cross CrossVersion.binary)
 )
 
 lazy val publishSettings =  Seq(
@@ -98,9 +98,9 @@ lazy val core = project
   .settings(
     resolvers += "bmjames Bintray Repo" at "https://dl.bintray.com/bmjames/maven",
     libraryDependencies ++= Seq(
-      "org.scalaz"  %% "scalaz-core"                % "7.2.3",
-      "org.scalaz"  %% "scalaz-effect"              % "7.2.3",
-      "net.bmjames" %% "scala-optparse-applicative" % "0.4"
+      "org.scalaz"  %% "scalaz-core"                % "7.2.7",
+      "org.scalaz"  %% "scalaz-effect"              % "7.2.7",
+      "net.bmjames" %% "scala-optparse-applicative" % "0.5"
     )
   )
 
