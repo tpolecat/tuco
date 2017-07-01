@@ -4,8 +4,8 @@ import ReleaseTransformations._
 lazy val buildSettings = Seq(
   organization := "org.tpolecat",
   licenses ++= Seq(("MIT", url("http://opensource.org/licenses/MIT"))),
-  scalaVersion := "2.12.0",
-  crossScalaVersions := Seq("2.10.6", "2.11.8", scalaVersion.value),
+  scalaVersion := "2.12.2",
+  crossScalaVersions := Seq("2.10.6", "2.11.11", scalaVersion.value),
   scalacOptions in (Compile, doc) ++= {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, v)) if v <= 11 =>
@@ -94,8 +94,8 @@ lazy val tuco = project
   .in(file("."))
   .settings(tucoSettings)
   .settings(noPublishSettings)
-  .dependsOn(wimpi, core, docs)
-  .aggregate(wimpi, core, docs)
+  .dependsOn(wimpi, core, shell, example, docs)
+  .aggregate(wimpi, core, shell, example, docs)
 
 lazy val core = project
   .in(file("modules/core"))
@@ -104,10 +104,21 @@ lazy val core = project
   .settings(tucoSettings)
   .settings(publishSettings)
   .settings(
+    libraryDependencies ++= Seq(
+      "org.scalaz"  %% "scalaz-core"   % "7.2.7",
+      "org.scalaz"  %% "scalaz-effect" % "7.2.7"
+    )
+  )
+
+lazy val shell = project
+  .in(file("modules/shell"))
+  .dependsOn(core)
+  .settings(name := "tuco-shell")
+  .settings(tucoSettings)
+  .settings(publishSettings)
+  .settings(
     resolvers += "bmjames Bintray Repo" at "https://dl.bintray.com/bmjames/maven",
     libraryDependencies ++= Seq(
-      "org.scalaz"  %% "scalaz-core"                % "7.2.7",
-      "org.scalaz"  %% "scalaz-effect"              % "7.2.7",
       "net.bmjames" %% "scala-optparse-applicative" % "0.5"
     )
   )
@@ -125,13 +136,13 @@ lazy val example = project
   .in(file("modules/example"))
   .settings(tucoSettings)
   .settings(noPublishSettings)
-  .dependsOn(core)
+  .dependsOn(shell)
 
 lazy val docs = project
   .in(file("modules/docs"))
   .settings(tucoSettings)
   .settings(noPublishSettings)
-  .dependsOn(core)
+  .dependsOn(shell)
   .enablePlugins(MicrositesPlugin)
   .settings(
     micrositeName             := "tuco",
