@@ -37,9 +37,6 @@ trait SessionIOFunctions {
   val getColumns: SessionIO[Int] =
     HC.getColumns
 
-  def runShell[A](init: Session[A]): SessionIO[Session[A]] =
-    CommandShell.run(init)
-
   /** Read given a prompt and history. */
   def readLn(
     prompt: String,

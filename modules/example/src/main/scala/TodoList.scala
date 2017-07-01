@@ -3,6 +3,7 @@ package example
 import net.bmjames.opts._
 import scalaz._, Scalaz._, scalaz.effect._
 import tuco._, Tuco._
+import tuco.shell._
 
 object TodoList extends SafeApp {
 

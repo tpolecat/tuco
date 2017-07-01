@@ -11,12 +11,13 @@ In this tutorial we will step things up a bit by introducing the **Command Shell
 
 ### Preliminaries
 
-First let's deal with imports. Note that we're importing the contents `net.bmjames.opts` from the [**scala-optparse-applicative**](https://github.com/bmjames/scala-optparse-applicative) library, which is included as a dependency of **Tuco**. We will use this functionality to define *parsers* for our commands.
+First let's deal with imports. Note that we're importing the contents `net.bmjames.opts` from the [**scala-optparse-applicative**](https://github.com/bmjames/scala-optparse-applicative) library, which is included as a dependency of **Tuco**. We will use this functionality to define *parsers* for our commands. We also need `tuco.shell._` here.
 
 ```tut:silent
 import net.bmjames.opts._
 import scalaz._, Scalaz._, scalaz.effect._
 import tuco._, Tuco._
+import tuco.shell._
 ```
 
 Our application will manage a to-do list, providing the user with commands to add, delete, clear, and display the list. Our `Todo` type just wraps a `String` for now. As an exercise you may wish to add other fields (and commands to manipulate them).

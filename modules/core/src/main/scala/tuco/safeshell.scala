@@ -1,10 +1,8 @@
-package tuco.shell
+package tuco
 
 import tuco.free._
 import tuco.free.{ connection => FC }
 import tuco.hi.{ connection => HC }
-
-import net.bmjames.opts._
 
 import scalaz._, Scalaz.{ some => _, _ }, scalaz.effect._
 
