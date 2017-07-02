@@ -4,15 +4,15 @@
 
 <p>For our next <strong>Tuco</strong> program we will build a telnet server that plays a guessing game with the user. We will need some additional imports.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">import</span> <span class="nn">scala.util.Random</span>
-<span class="k">import</span> <span class="nn">scalaz._</span><span class="o">,</span> <span class="nc">Scalaz</span><span class="o">.</span><span class="k">_</span><span class="o">,</span> <span class="nc">Ordering</span><span class="o">.</span><span class="k">_</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">import</span> <span class="nn">scala.util.</span><span class="o">{</span> <span class="nc">Random</span><span class="o">,</span> <span class="nc">Try</span><span class="o">,</span> <span class="nc">Success</span><span class="o">,</span> <span class="nc">Failure</span> <span class="o">}</span>
+<span class="k">import</span> <span class="nn">cats._</span><span class="o">,</span> <span class="n">cats</span><span class="o">.</span><span class="n">implicits</span><span class="o">.</span><span class="k">_</span><span class="o">,</span> <span class="n">cats</span><span class="o">.</span><span class="n">kernel</span><span class="o">.</span><span class="nc">Comparison</span><span class="o">.</span><span class="k">_</span><span class="o">,</span> <span class="n">cats</span><span class="o">.</span><span class="n">effect</span><span class="o">.</span><span class="nc">IO</span>
 <span class="k">import</span> <span class="nn">tuco._</span><span class="o">,</span> <span class="nc">Tuco</span><span class="o">.</span><span class="k">_</span>
 </code></pre>
 </div>
 
 <p>This time our behavior is a bit different. We say hello and goodbye much a before, but the main gameplay is delegated to a <code class="highlighter-rouge">loop</code> program that we will define later. (If you’re following along in the REPL skip this definition until we have defined <code class="highlighter-rouge">loop</code>.)</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="n">game</span><span class="o">(</span><span class="n">r</span><span class="k">:</span> <span class="kt">Random</span><span class="o">)</span><span class="k">:</span> <span class="kt">SessionIO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="n">game</span><span class="o">(</span><span class="n">r</span><span class="k">:</span> <span class="kt">Random</span><span class="o">)</span><span class="k">:</span> <span class="kt">SessionIO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span>
   <span class="k">for</span> <span class="o">{</span>
     <span class="k">_</span> <span class="k">&lt;-</span> <span class="n">writeLn</span><span class="o">(</span><span class="s">"Welcome to the guessing game!"</span><span class="o">)</span>
     <span class="n">a</span> <span class="k">&lt;-</span> <span class="nc">SessionIO</span><span class="o">.</span><span class="n">delay</span><span class="o">(</span><span class="n">r</span><span class="o">.</span><span class="n">nextInt</span><span class="o">(</span><span class="mi">10</span><span class="o">)</span> <span class="o">+</span> <span class="mi">1</span><span class="o">)</span>
@@ -27,8 +27,8 @@
 
 <p>Because we will be reading an <code class="highlighter-rouge">Int</code> from the user, we need to provide a program that knows how to do this. So we define the following program that prompts the user, attempts to parse the input, and either returns the value or reports an error and tries again.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="n">readInt</span><span class="o">(</span><span class="n">prompt</span><span class="k">:</span> <span class="kt">String</span><span class="o">)</span><span class="k">:</span> <span class="kt">SessionIO</span><span class="o">[</span><span class="kt">Int</span><span class="o">]</span> <span class="k">=</span>
-  <span class="n">readLn</span><span class="o">(</span><span class="n">prompt</span><span class="o">).</span><span class="n">map</span><span class="o">(</span><span class="k">_</span><span class="o">.</span><span class="n">parseInt</span><span class="o">).</span><span class="n">flatMap</span> <span class="o">{</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="n">readInt</span><span class="o">(</span><span class="n">prompt</span><span class="k">:</span> <span class="kt">String</span><span class="o">)</span><span class="k">:</span> <span class="kt">SessionIO</span><span class="o">[</span><span class="kt">Int</span><span class="o">]</span> <span class="k">=</span>
+  <span class="n">readLn</span><span class="o">(</span><span class="n">prompt</span><span class="o">).</span><span class="n">map</span><span class="o">(</span><span class="n">s</span> <span class="k">=&gt;</span> <span class="nc">Try</span><span class="o">(</span><span class="n">s</span><span class="o">.</span><span class="n">toInt</span><span class="o">)).</span><span class="n">flatMap</span> <span class="o">{</span>
     <span class="k">case</span> <span class="nc">Failure</span><span class="o">(</span><span class="k">_</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="n">writeLn</span><span class="o">(</span><span class="s">"That's not a number! Try again."</span><span class="o">)</span> <span class="o">*&gt;</span> <span class="n">readInt</span><span class="o">(</span><span class="n">prompt</span><span class="o">)</span>
     <span class="k">case</span> <span class="nc">Success</span><span class="o">(</span><span class="n">n</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="nc">SessionIO</span><span class="o">.</span><span class="n">pure</span><span class="o">(</span><span class="n">n</span><span class="o">)</span>
   <span class="o">}</span>
@@ -37,26 +37,26 @@
 
 <p>With that out of the way we can implement our game loop. We read an <code class="highlighter-rouge">Int</code> then compare it with our answer, either giving the user a clue and looping, or congratulating the user if the guess is correct.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="n">loop</span><span class="o">(</span><span class="n">answer</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">guesses</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span><span class="k">:</span> <span class="kt">SessionIO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span>
-  <span class="n">readInt</span><span class="o">(</span><span class="s">"Your guess? "</span><span class="o">).</span><span class="n">map</span><span class="o">(</span><span class="k">_</span> <span class="n">cmp</span> <span class="n">answer</span><span class="o">).</span><span class="n">flatMap</span> <span class="o">{</span>
-    <span class="k">case</span> <span class="nc">LT</span> <span class="k">=&gt;</span> <span class="n">writeLn</span><span class="o">(</span><span class="s">"Nope, higher!"</span><span class="o">)</span> <span class="o">*&gt;</span> <span class="n">loop</span><span class="o">(</span><span class="n">answer</span><span class="o">,</span> <span class="n">guesses</span> <span class="o">+</span> <span class="mi">1</span><span class="o">)</span>
-    <span class="k">case</span> <span class="nc">GT</span> <span class="k">=&gt;</span> <span class="n">writeLn</span><span class="o">(</span><span class="s">"Nope, lower!"</span><span class="o">)</span>  <span class="o">*&gt;</span> <span class="n">loop</span><span class="o">(</span><span class="n">answer</span><span class="o">,</span> <span class="n">guesses</span> <span class="o">+</span> <span class="mi">1</span><span class="o">)</span>
-    <span class="k">case</span> <span class="nc">EQ</span> <span class="k">=&gt;</span> <span class="k">if</span> <span class="o">(</span><span class="n">guesses</span> <span class="o">==</span> <span class="mi">1</span><span class="o">)</span> <span class="n">writeLn</span><span class="o">(</span><span class="s">"Good guess! You won on the first try!"</span><span class="o">)</span>
-               <span class="k">else</span>              <span class="n">writeLn</span><span class="o">(</span><span class="n">s</span><span class="s">"Right! It took $guesses tries."</span><span class="o">)</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="n">loop</span><span class="o">(</span><span class="n">answer</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">guesses</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span><span class="k">:</span> <span class="kt">SessionIO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span>
+  <span class="n">readInt</span><span class="o">(</span><span class="s">"Your guess? "</span><span class="o">).</span><span class="n">map</span><span class="o">(</span><span class="k">_</span> <span class="n">comparison</span> <span class="n">answer</span><span class="o">).</span><span class="n">flatMap</span> <span class="o">{</span>
+    <span class="k">case</span> <span class="nc">LessThan</span>    <span class="k">=&gt;</span> <span class="n">writeLn</span><span class="o">(</span><span class="s">"Nope, higher!"</span><span class="o">)</span> <span class="o">*&gt;</span> <span class="n">loop</span><span class="o">(</span><span class="n">answer</span><span class="o">,</span> <span class="n">guesses</span> <span class="o">+</span> <span class="mi">1</span><span class="o">)</span>
+    <span class="k">case</span> <span class="nc">GreaterThan</span> <span class="k">=&gt;</span> <span class="n">writeLn</span><span class="o">(</span><span class="s">"Nope, lower!"</span><span class="o">)</span>  <span class="o">*&gt;</span> <span class="n">loop</span><span class="o">(</span><span class="n">answer</span><span class="o">,</span> <span class="n">guesses</span> <span class="o">+</span> <span class="mi">1</span><span class="o">)</span>
+    <span class="k">case</span> <span class="nc">EqualTo</span>     <span class="k">=&gt;</span> <span class="k">if</span> <span class="o">(</span><span class="n">guesses</span> <span class="o">==</span> <span class="mi">1</span><span class="o">)</span> <span class="n">writeLn</span><span class="o">(</span><span class="s">"Good guess! You won on the first try!"</span><span class="o">)</span>
+                        <span class="k">else</span> <span class="n">writeLn</span><span class="o">(</span><span class="n">s</span><span class="s">"Right! It took $guesses tries."</span><span class="o">)</span>
   <span class="o">}</span>
 </code></pre>
 </div>
 
 <p>Our game is fully implemented and we can define the server config.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">conf</span> <span class="k">=</span> <span class="nc">Config</span><span class="o">(</span><span class="n">game</span><span class="o">(</span><span class="k">new</span> <span class="nc">Random</span><span class="o">(</span><span class="mi">123L</span><span class="o">)),</span> <span class="mi">6666</span><span class="o">)</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">conf</span> <span class="k">=</span> <span class="nc">Config</span><span class="o">(</span><span class="n">game</span><span class="o">(</span><span class="k">new</span> <span class="nc">Random</span><span class="o">(</span><span class="mi">123L</span><span class="o">)),</span> <span class="mi">6666</span><span class="o">)</span>
 </code></pre>
 </div>
 
 <p>Start the server up.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">stop</span> <span class="k">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">start</span><span class="o">.</span><span class="n">unsafePerformIO</span>
-<span class="n">stop</span><span class="k">:</span> <span class="kt">scalaz.effect.IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span> <span class="n">scalaz</span><span class="o">.</span><span class="n">effect</span><span class="o">.</span><span class="nc">IO$$anon$7</span><span class="k">@</span><span class="mi">425</span><span class="n">ba639</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">stop</span> <span class="k">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">start</span><span class="o">.</span><span class="n">unsafeRunSync</span>
+<span class="n">stop</span><span class="k">:</span> <span class="kt">cats.effect.IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span> <span class="nc">IO$1059610178</span>
 </code></pre>
 </div>
 
@@ -80,7 +80,7 @@ Goodbye.
 
 <p>Shut the server down when you’re done playing.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="n">stop</span><span class="o">.</span><span class="n">unsafePerformIO</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="n">stop</span><span class="o">.</span><span class="n">unsafeRunSync</span>
 </code></pre>
 </div>
 </section></div></div></div></div><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script><script src="/tuco/highlight/highlight.pack.js"></script><script>hljs.configure({

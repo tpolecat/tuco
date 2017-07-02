@@ -6,23 +6,24 @@
 
 <h3 id="preliminaries">Preliminaries</h3>
 
-<p>First let’s deal with imports. Note that we’re importing the contents <code class="highlighter-rouge">net.bmjames.opts</code> from the <a href="https://github.com/bmjames/scala-optparse-applicative"><strong>scala-optparse-applicative</strong></a> library, which is included as a dependency of <strong>Tuco</strong>. We will use this functionality to define <em>parsers</em> for our commands.</p>
+<p>First let’s deal with imports. Note that we’re importing the contents <code class="highlighter-rouge">com.monovore.decline</code> from the <a href="https://github.com/bkirwi/decline"><strong>decline</strong></a> library, which is included as a dependency of <strong>Tuco</strong>. We will use this functionality to define <em>parsers</em> for our commands. We also need <code class="highlighter-rouge">tuco.shell._</code> here.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">import</span> <span class="nn">net.bmjames.opts._</span>
-<span class="k">import</span> <span class="nn">scalaz._</span><span class="o">,</span> <span class="nc">Scalaz</span><span class="o">.</span><span class="k">_</span><span class="o">,</span> <span class="n">scalaz</span><span class="o">.</span><span class="n">effect</span><span class="o">.</span><span class="k">_</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">import</span> <span class="nn">com.monovore.decline.</span><span class="o">{</span> <span class="nc">Command</span> <span class="k">=&gt;</span> <span class="nc">Cmd</span><span class="o">,</span> <span class="k">_</span> <span class="o">}</span>
+<span class="k">import</span> <span class="nn">cats._</span><span class="o">,</span> <span class="n">cats</span><span class="o">.</span><span class="n">implicits</span><span class="o">.</span><span class="k">_</span><span class="o">,</span> <span class="n">cats</span><span class="o">.</span><span class="n">effect</span><span class="o">.</span><span class="k">_</span>
 <span class="k">import</span> <span class="nn">tuco._</span><span class="o">,</span> <span class="nc">Tuco</span><span class="o">.</span><span class="k">_</span>
+<span class="k">import</span> <span class="nn">tuco.shell._</span>
 </code></pre>
 </div>
 
 <p>Our application will manage a to-do list, providing the user with commands to add, delete, clear, and display the list. Our <code class="highlighter-rouge">Todo</code> type just wraps a <code class="highlighter-rouge">String</code> for now. As an exercise you may wish to add other fields (and commands to manipulate them).</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">case</span> <span class="k">class</span> <span class="nc">Todo</span><span class="o">(</span><span class="n">text</span><span class="k">:</span> <span class="kt">String</span><span class="o">)</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">case</span> <span class="k">class</span> <span class="nc">Todo</span><span class="o">(</span><span class="n">text</span><span class="k">:</span> <span class="kt">String</span><span class="o">)</span>
 </code></pre>
 </div>
 
 <p>Let’s define some type aliases to ease things along.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">type</span> <span class="kt">TodoState</span> <span class="o">=</span> <span class="nc">List</span><span class="o">[</span><span class="kt">Todo</span><span class="o">]</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">type</span> <span class="kt">TodoState</span> <span class="o">=</span> <span class="nc">List</span><span class="o">[</span><span class="kt">Todo</span><span class="o">]</span>
 <span class="k">object</span> <span class="nc">TodoState</span> <span class="o">{</span>
   <span class="k">val</span> <span class="n">empty</span> <span class="k">=</span> <span class="nc">Nil</span>
 <span class="o">}</span>
@@ -54,15 +55,15 @@
 
 <p>Our first action will insert a new item at offset <code class="highlighter-rouge">i</code> in the to-do list. By using <code class="highlighter-rouge">patch</code> we make this operation safe for out-of-bounds indices. The implementation has no <code class="highlighter-rouge">SessionIO</code> effect; it simply computes the new state.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="n">add</span><span class="o">(</span><span class="n">index</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">text</span><span class="k">:</span> <span class="kt">String</span><span class="o">)</span><span class="k">:</span> <span class="kt">TodoAction</span> <span class="o">=</span> <span class="n">ts</span> <span class="k">=&gt;</span>
-  <span class="n">ts</span><span class="o">.</span><span class="n">patch</span><span class="o">(</span><span class="n">index</span><span class="o">,</span> <span class="nc">List</span><span class="o">(</span><span class="nc">Todo</span><span class="o">(</span><span class="n">text</span><span class="o">)),</span> <span class="mi">0</span><span class="o">).</span><span class="n">point</span><span class="o">[</span><span class="kt">SessionIO</span><span class="o">]</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="n">add</span><span class="o">(</span><span class="n">index</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">text</span><span class="k">:</span> <span class="kt">String</span><span class="o">)</span><span class="k">:</span> <span class="kt">TodoAction</span> <span class="o">=</span> <span class="n">ts</span> <span class="k">=&gt;</span>
+  <span class="n">ts</span><span class="o">.</span><span class="n">patch</span><span class="o">(</span><span class="n">index</span><span class="o">,</span> <span class="nc">List</span><span class="o">(</span><span class="nc">Todo</span><span class="o">(</span><span class="n">text</span><span class="o">)),</span> <span class="mi">0</span><span class="o">).</span><span class="n">pure</span><span class="o">[</span><span class="kt">SessionIO</span><span class="o">]</span>
 </code></pre>
 </div>
 
 <p>Our next action deletes the to-do item at the given index. Here we check the index and either point the computed state or complain to the user that the index is out of bound and return the state unchanged.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="n">delete</span><span class="o">(</span><span class="n">index</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span><span class="k">:</span> <span class="kt">TodoAction</span> <span class="o">=</span> <span class="o">{</span> <span class="n">ts</span> <span class="k">=&gt;</span>
-  <span class="k">if</span> <span class="o">(</span><span class="n">ts</span><span class="o">.</span><span class="n">isDefinedAt</span><span class="o">(</span><span class="n">index</span><span class="o">))</span> <span class="n">ts</span><span class="o">.</span><span class="n">patch</span><span class="o">(</span><span class="n">index</span><span class="o">,</span> <span class="nc">Nil</span><span class="o">,</span> <span class="mi">1</span><span class="o">).</span><span class="n">point</span><span class="o">[</span><span class="kt">SessionIO</span><span class="o">]</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="n">delete</span><span class="o">(</span><span class="n">index</span><span class="k">:</span> <span class="kt">Int</span><span class="o">)</span><span class="k">:</span> <span class="kt">TodoAction</span> <span class="o">=</span> <span class="o">{</span> <span class="n">ts</span> <span class="k">=&gt;</span>
+  <span class="k">if</span> <span class="o">(</span><span class="n">ts</span><span class="o">.</span><span class="n">isDefinedAt</span><span class="o">(</span><span class="n">index</span><span class="o">))</span> <span class="n">ts</span><span class="o">.</span><span class="n">patch</span><span class="o">(</span><span class="n">index</span><span class="o">,</span> <span class="nc">Nil</span><span class="o">,</span> <span class="mi">1</span><span class="o">).</span><span class="n">pure</span><span class="o">[</span><span class="kt">SessionIO</span><span class="o">]</span>
   <span class="k">else</span> <span class="n">writeLn</span><span class="o">(</span><span class="n">s</span><span class="s">"No such todo!"</span><span class="o">).</span><span class="n">as</span><span class="o">(</span><span class="n">ts</span><span class="o">)</span>
 <span class="o">}</span>
 </code></pre>
@@ -70,7 +71,7 @@
 
 <p>Our action that clears the list prompts the user to confirm, and returns either <code class="highlighter-rouge">Nil</code> or the current state depending on the user’s answer.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">clear</span><span class="k">:</span> <span class="kt">TodoAction</span> <span class="o">=</span> <span class="n">ts</span> <span class="k">=&gt;</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">clear</span><span class="k">:</span> <span class="kt">TodoAction</span> <span class="o">=</span> <span class="n">ts</span> <span class="k">=&gt;</span>
   <span class="n">readLn</span><span class="o">(</span><span class="s">"Are you sure (yes/no)? "</span><span class="o">).</span><span class="n">map</span><span class="o">(</span><span class="k">_</span><span class="o">.</span><span class="n">trim</span><span class="o">.</span><span class="n">toLowerCase</span><span class="o">).</span><span class="n">map</span> <span class="o">{</span>
     <span class="k">case</span> <span class="s">"yes"</span> <span class="k">=&gt;</span> <span class="nc">Nil</span>
     <span class="k">case</span> <span class="k">_</span>     <span class="k">=&gt;</span> <span class="n">ts</span>
@@ -80,7 +81,7 @@
 
 <p>To display the to-do list to the user we number them, then truncate the resulting string at the terminal’s column limit in order to avoid wrapping. In the real world you might incorporate a word-wrapping algorithm here.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">list</span><span class="k">:</span> <span class="kt">TodoAction</span> <span class="o">=</span> <span class="n">ts</span> <span class="k">=&gt;</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">list</span><span class="k">:</span> <span class="kt">TodoAction</span> <span class="o">=</span> <span class="n">ts</span> <span class="k">=&gt;</span>
   <span class="k">for</span> <span class="o">{</span>
     <span class="n">cs</span> <span class="k">&lt;-</span> <span class="n">getColumns</span>
     <span class="n">ss</span>  <span class="k">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">zipWithIndex</span><span class="o">.</span><span class="n">map</span> <span class="o">{</span> <span class="k">case</span> <span class="o">(</span><span class="nc">Todo</span><span class="o">(</span><span class="n">s</span><span class="o">),</span> <span class="n">n</span><span class="o">)</span> <span class="k">=&gt;</span> <span class="n">f</span><span class="s">"${n + 1}%3d. $s"</span><span class="o">.</span><span class="n">take</span><span class="o">(</span><span class="n">cs</span><span class="o">)</span> <span class="o">}</span>
@@ -108,8 +109,8 @@
 
 <p>Recall the <code class="highlighter-rouge">add</code> action we defined above.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="n">add</span><span class="o">(</span><span class="n">index</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">text</span><span class="k">:</span> <span class="kt">String</span><span class="o">)</span><span class="k">:</span> <span class="kt">TodoAction</span> <span class="o">=</span> <span class="n">ts</span> <span class="k">=&gt;</span>
-  <span class="n">ts</span><span class="o">.</span><span class="n">patch</span><span class="o">(</span><span class="n">index</span><span class="o">,</span> <span class="nc">List</span><span class="o">(</span><span class="nc">Todo</span><span class="o">(</span><span class="n">text</span><span class="o">)),</span> <span class="mi">0</span><span class="o">).</span><span class="n">point</span><span class="o">[</span><span class="kt">SessionIO</span><span class="o">]</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">def</span> <span class="n">add</span><span class="o">(</span><span class="n">index</span><span class="k">:</span> <span class="kt">Int</span><span class="o">,</span> <span class="n">text</span><span class="k">:</span> <span class="kt">String</span><span class="o">)</span><span class="k">:</span> <span class="kt">TodoAction</span> <span class="o">=</span> <span class="n">ts</span> <span class="k">=&gt;</span>
+  <span class="n">ts</span><span class="o">.</span><span class="n">patch</span><span class="o">(</span><span class="n">index</span><span class="o">,</span> <span class="nc">List</span><span class="o">(</span><span class="nc">Todo</span><span class="o">(</span><span class="n">text</span><span class="o">)),</span> <span class="mi">0</span><span class="o">).</span><span class="n">pure</span><span class="o">[</span><span class="kt">SessionIO</span><span class="o">]</span>
 </code></pre>
 </div>
 
@@ -117,14 +118,13 @@
 
 <p>Here is the parser for our <code class="highlighter-rouge">index</code> argument.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">ind</span><span class="k">:</span> <span class="kt">Parser</span><span class="o">[</span><span class="kt">Int</span><span class="o">]</span> <span class="k">=</span>
-  <span class="n">intOption</span><span class="o">(</span>
-    <span class="n">help</span><span class="o">(</span><span class="s">"List index where the todo should appear."</span><span class="o">),</span>
-    <span class="n">short</span><span class="o">(</span><span class="sc">'i'</span><span class="o">),</span>
-    <span class="n">long</span><span class="o">(</span><span class="s">"index"</span><span class="o">),</span>
-    <span class="n">metavar</span><span class="o">(</span><span class="s">"&lt;index&gt;"</span><span class="o">),</span>
-    <span class="n">value</span><span class="o">(</span><span class="mi">1</span><span class="o">)</span>
-  <span class="o">).</span><span class="n">map</span><span class="o">(</span><span class="k">_</span> <span class="o">-</span> <span class="mi">1</span><span class="o">)</span> <span class="c1">// 1-based for the user, 0-based internally
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">ind</span><span class="k">:</span> <span class="kt">Opts</span><span class="o">[</span><span class="kt">Int</span><span class="o">]</span> <span class="k">=</span>
+  <span class="nc">Opts</span><span class="o">.</span><span class="n">option</span><span class="o">[</span><span class="kt">Int</span><span class="o">](</span>
+    <span class="n">help</span> <span class="k">=</span> <span class="s">"List index where the todo should appear."</span><span class="o">,</span>
+    <span class="n">short</span> <span class="k">=</span> <span class="s">"i"</span><span class="o">,</span>
+    <span class="n">long</span> <span class="k">=</span> <span class="s">"index"</span><span class="o">,</span>
+    <span class="n">metavar</span> <span class="k">=</span> <span class="s">"index"</span>
+  <span class="o">).</span><span class="n">withDefault</span><span class="o">(</span><span class="mi">1</span><span class="o">).</span><span class="n">map</span><span class="o">(</span><span class="k">_</span> <span class="o">-</span> <span class="mi">1</span><span class="o">)</span> <span class="c1">// 1-based for the user, 0-based internally
 </span></code></pre>
 </div>
 
@@ -140,15 +140,15 @@
 
 <p>The second argument to <code class="highlighter-rouge">add</code> is the to-do item text, which is an arbitrary string. In our command this will be a required <em>argument</em> so we use <code class="highlighter-rouge">strArgument</code> to construct its parser.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">txt</span><span class="k">:</span> <span class="kt">Parser</span><span class="o">[</span><span class="kt">String</span><span class="o">]</span> <span class="k">=</span>
-  <span class="n">strArgument</span><span class="o">(</span><span class="n">help</span><span class="o">(</span><span class="s">"Todo item text."</span><span class="o">),</span> <span class="n">metavar</span><span class="o">(</span><span class="s">"\"&lt;text&gt;\""</span><span class="o">))</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">txt</span><span class="k">:</span> <span class="kt">Opts</span><span class="o">[</span><span class="kt">String</span><span class="o">]</span> <span class="k">=</span>
+  <span class="nc">Opts</span><span class="o">.</span><span class="n">argument</span><span class="o">[</span><span class="kt">String</span><span class="o">](</span><span class="n">metavar</span> <span class="k">=</span> <span class="s">"\"text\""</span><span class="o">)</span>
 </code></pre>
 </div>
 
 <p>We now have what we need to construct a <code class="highlighter-rouge">Command</code>. We combine the parsers with <code class="highlighter-rouge">|@|</code> to yield a <code class="highlighter-rouge">Parser[TodoAction]</code> which is what we need for the third construtor argument.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">addCommand</span><span class="k">:</span> <span class="kt">Command</span><span class="o">[</span><span class="kt">SessionIO</span>, <span class="kt">TodoState</span><span class="o">]</span> <span class="k">=</span>
-  <span class="nc">Command</span><span class="o">(</span><span class="s">"add"</span><span class="o">,</span> <span class="s">"Add a new todo."</span><span class="o">,</span> <span class="o">(</span><span class="n">ind</span> <span class="o">|@|</span> <span class="n">txt</span><span class="o">)(</span><span class="n">add</span><span class="o">))</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">addCommand</span><span class="k">:</span> <span class="kt">Command</span><span class="o">[</span><span class="kt">SessionIO</span>, <span class="kt">TodoState</span><span class="o">]</span> <span class="k">=</span>
+  <span class="nc">Command</span><span class="o">(</span><span class="s">"add"</span><span class="o">,</span> <span class="s">"Add a new todo."</span><span class="o">,</span> <span class="o">(</span><span class="n">ind</span> <span class="o">|@|</span> <span class="n">txt</span><span class="o">).</span><span class="n">map</span><span class="o">(</span><span class="n">add</span><span class="o">))</span>
 </code></pre>
 </div>
 
@@ -158,8 +158,8 @@
 
 <p>The state passed by the command shell is called <code class="highlighter-rouge">Session[A]</code> where the domain-specific hunk is passed via the <code class="highlighter-rouge">data</code> field of type <code class="highlighter-rouge">A</code>. So what we really need in order to make our command compatible with the shell machinery is a <code class="highlighter-rouge">Command[SessionIO, Session[TodoState]]</code>. We can do this by applying the <code class="highlighter-rouge">zoom</code> operator that lenses down from the <code class="highlighter-rouge">Session</code> to the <code class="highlighter-rouge">TodoState</code>.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">addCommand</span><span class="k">:</span> <span class="kt">Command</span><span class="o">[</span><span class="kt">SessionIO</span>, <span class="kt">Session</span><span class="o">[</span><span class="kt">TodoState</span><span class="o">]]</span> <span class="k">=</span> <span class="o">{</span>
-  <span class="nc">Command</span><span class="o">(</span><span class="s">"add"</span><span class="o">,</span> <span class="s">"Add a new todo."</span><span class="o">,</span> <span class="o">(</span><span class="n">ind</span> <span class="o">|@|</span> <span class="n">txt</span><span class="o">)(</span><span class="n">add</span><span class="o">))</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">addCommand</span><span class="k">:</span> <span class="kt">Command</span><span class="o">[</span><span class="kt">SessionIO</span>, <span class="kt">Session</span><span class="o">[</span><span class="kt">TodoState</span><span class="o">]]</span> <span class="k">=</span> <span class="o">{</span>
+  <span class="nc">Command</span><span class="o">(</span><span class="s">"add"</span><span class="o">,</span> <span class="s">"Add a new todo."</span><span class="o">,</span> <span class="o">(</span><span class="n">ind</span> <span class="o">|@|</span> <span class="n">txt</span><span class="o">).</span><span class="n">map</span><span class="o">(</span><span class="n">add</span><span class="o">))</span>
     <span class="o">.</span><span class="n">zoom</span><span class="o">(</span><span class="nc">Session</span><span class="o">.</span><span class="n">L</span><span class="o">.</span><span class="n">data</span><span class="o">[</span><span class="kt">TodoState</span><span class="o">])</span> <span class="c1">// Session.L is a module of lenses
 </span><span class="o">}</span>
 </code></pre>
@@ -171,11 +171,10 @@
 
 <p>The <code class="highlighter-rouge">delete</code> command takes a single argument so it’s reasonable to write the parser inline.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">deleteCommand</span> <span class="k">=</span> <span class="o">{</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">deleteCommand</span> <span class="k">=</span> <span class="o">{</span>
   <span class="nc">Command</span><span class="o">(</span><span class="s">"delete"</span><span class="o">,</span> <span class="s">"Delete the specified item."</span><span class="o">,</span>
-    <span class="n">intArgument</span><span class="o">(</span>
-      <span class="n">help</span><span class="o">(</span><span class="s">"Todo item to delete."</span><span class="o">),</span>
-      <span class="n">metavar</span><span class="o">(</span><span class="s">"&lt;index&gt;"</span><span class="o">)</span>
+    <span class="nc">Opts</span><span class="o">.</span><span class="n">argument</span><span class="o">[</span><span class="kt">Int</span><span class="o">](</span>
+      <span class="n">metavar</span> <span class="k">=</span> <span class="s">"index"</span>
     <span class="o">).</span><span class="n">map</span><span class="o">(</span><span class="n">n</span> <span class="k">=&gt;</span> <span class="n">delete</span><span class="o">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="o">)))</span>
     <span class="o">.</span><span class="n">zoom</span><span class="o">(</span><span class="nc">Session</span><span class="o">.</span><span class="n">L</span><span class="o">.</span><span class="n">data</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">Todo</span><span class="o">]])</span>
 <span class="o">}</span>
@@ -184,13 +183,13 @@
 
 <p>The list and clear commands takes no arguments at all, so the parsers are simply lifted values.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">listCommand</span> <span class="k">=</span> <span class="o">{</span>
-  <span class="nc">Command</span><span class="o">(</span><span class="s">"list"</span><span class="o">,</span> <span class="s">"List the todo items."</span><span class="o">,</span> <span class="n">list</span><span class="o">.</span><span class="n">point</span><span class="o">[</span><span class="kt">Parser</span><span class="o">])</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">listCommand</span> <span class="k">=</span> <span class="o">{</span>
+  <span class="nc">Command</span><span class="o">(</span><span class="s">"list"</span><span class="o">,</span> <span class="s">"List the todo items."</span><span class="o">,</span> <span class="n">list</span><span class="o">.</span><span class="n">pure</span><span class="o">[</span><span class="kt">Opts</span><span class="o">])</span>
     <span class="o">.</span><span class="n">zoom</span><span class="o">(</span><span class="nc">Session</span><span class="o">.</span><span class="n">L</span><span class="o">.</span><span class="n">data</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">Todo</span><span class="o">]])</span>
 <span class="o">}</span>
 
 <span class="k">val</span> <span class="n">clearCommand</span> <span class="k">=</span> <span class="o">{</span>
-  <span class="nc">Command</span><span class="o">(</span><span class="s">"clear"</span><span class="o">,</span> <span class="s">"Clears the todo list."</span><span class="o">,</span> <span class="n">clear</span><span class="o">.</span><span class="n">point</span><span class="o">[</span><span class="kt">Parser</span><span class="o">])</span>
+  <span class="nc">Command</span><span class="o">(</span><span class="s">"clear"</span><span class="o">,</span> <span class="s">"Clears the todo list."</span><span class="o">,</span> <span class="n">clear</span><span class="o">.</span><span class="n">pure</span><span class="o">[</span><span class="kt">Opts</span><span class="o">])</span>
     <span class="o">.</span><span class="n">zoom</span><span class="o">(</span><span class="nc">Session</span><span class="o">.</span><span class="n">L</span><span class="o">.</span><span class="n">data</span><span class="o">[</span><span class="kt">List</span><span class="o">[</span><span class="kt">Todo</span><span class="o">]])</span>
 <span class="o">}</span>
 </code></pre>
@@ -200,7 +199,7 @@
 
 <p>Now that we have defined our commands all that is remaining is to construct our initial session state to pass to <code class="highlighter-rouge">runShell</code>. We construct an initial <code class="highlighter-rouge">Session</code> with an empty to-do list, a custom command prompt, and a set of commands that includes <code class="highlighter-rouge">Builtins</code> which gives us our <code class="highlighter-rouge">help</code>, <code class="highlighter-rouge">history</code>, and <code class="highlighter-rouge">exit</code> commands.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="nc">TodoCommands</span> <span class="k">=</span> <span class="nc">Commands</span><span class="o">(</span><span class="n">addCommand</span><span class="o">,</span> <span class="n">deleteCommand</span><span class="o">,</span> <span class="n">listCommand</span><span class="o">,</span> <span class="n">clearCommand</span><span class="o">)</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="nc">TodoCommands</span> <span class="k">=</span> <span class="nc">Commands</span><span class="o">(</span><span class="n">addCommand</span><span class="o">,</span> <span class="n">deleteCommand</span><span class="o">,</span> <span class="n">listCommand</span><span class="o">,</span> <span class="n">clearCommand</span><span class="o">)</span>
 
 <span class="k">val</span> <span class="n">initialState</span><span class="k">:</span> <span class="kt">Session</span><span class="o">[</span><span class="kt">TodoState</span><span class="o">]</span> <span class="k">=</span>
   <span class="nc">Session</span><span class="o">.</span><span class="n">initial</span><span class="o">(</span><span class="nc">TodoState</span><span class="o">.</span><span class="n">empty</span><span class="o">).</span><span class="n">copy</span><span class="o">(</span>
@@ -212,7 +211,7 @@
 
 <p>Our session behavior greets the user and runs the command shell with our initial state, yielding the final state. We report the length of our list and then exit.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">todo</span><span class="k">:</span> <span class="kt">SessionIO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">todo</span><span class="k">:</span> <span class="kt">SessionIO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span>
   <span class="k">for</span> <span class="o">{</span>
     <span class="k">_</span> <span class="k">&lt;-</span> <span class="n">writeLn</span><span class="o">(</span><span class="s">"Welcome to TODO!"</span><span class="o">)</span>
     <span class="n">s</span> <span class="k">&lt;-</span> <span class="n">runShell</span><span class="o">(</span><span class="n">initialState</span><span class="o">)</span>
@@ -223,14 +222,14 @@
 
 <p>Our configuration is as before.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">conf</span> <span class="k">=</span> <span class="nc">Config</span><span class="o">(</span><span class="n">todo</span><span class="o">,</span> <span class="mi">6666</span><span class="o">)</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">conf</span> <span class="k">=</span> <span class="nc">Config</span><span class="o">(</span><span class="n">todo</span><span class="o">,</span> <span class="mi">6666</span><span class="o">)</span>
 </code></pre>
 </div>
 
 <p>We can now run our to-do server and connect from another terminal window via <code class="highlighter-rouge">telnet</code>.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">stop</span> <span class="k">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">start</span><span class="o">.</span><span class="n">unsafePerformIO</span>
-<span class="n">stop</span><span class="k">:</span> <span class="kt">scalaz.effect.IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span> <span class="n">scalaz</span><span class="o">.</span><span class="n">effect</span><span class="o">.</span><span class="nc">IO$$anon$7</span><span class="k">@</span><span class="mf">5f</span><span class="n">ae1e97</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">stop</span> <span class="k">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">start</span><span class="o">.</span><span class="n">unsafeRunSync</span>
+<span class="n">stop</span><span class="k">:</span> <span class="kt">cats.effect.IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span> <span class="nc">IO$426844241</span>
 </code></pre>
 </div>
 
@@ -251,13 +250,17 @@ Available commands: &lt;command&gt; -h for more info.
   history   Show command history.
   list      List the todo items.
 todo&gt; add -h
-Usage: add [-i|--index &lt;index&gt;] "&lt;text&gt;"
-  Add a new todo.
+Unexpected option: -h
 
-Available options:
-  -h,--help                Show this help text
-  -i,--index &lt;index&gt;       List index where the todo should appear.
-  "&lt;text&gt;"                 Todo item text.
+Usage: add [--index &lt;index&gt;] &lt;"text"&gt;
+
+Add a new todo.
+
+Options and flags:
+    --help
+        Display this help text.
+    --index &lt;index&gt;, -i &lt;index&gt;
+        List index where the todo should appear.
 todo&gt; add "Buy eggs."
 todo&gt; add "Wash the cat."
 todo&gt; list
@@ -276,7 +279,7 @@ Connection closed by foreign host.
 
 <p>Shut the server down when you’re done.</p>
 
-<div class="highlighter-rouge"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="n">stop</span><span class="o">.</span><span class="n">unsafePerformIO</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="n">stop</span><span class="o">.</span><span class="n">unsafeRunSync</span>
 </code></pre>
 </div>
 </section></div></div></div></div><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script><script src="/tuco/highlight/highlight.pack.js"></script><script>hljs.configure({
