@@ -34,8 +34,8 @@ object CommandShell {
         s.commands.toList.find(c => p.startsWith(c.name + " ")) match {
           case None    =>
             (s.commands.toList.map(_.name).filter(_.startsWith(p)) match {
-              case s :: Nil => Left(s.drop(p.length))
-              case ss       => Right(ss)
+              case s :: Nil => Left(s.drop(p.length)): Either[String, List[String]] // damnit 2.11
+              case ss       => Right(ss)             : Either[String, List[String]]
             }).pure[FBT.BasicTerminalIOIO]
           case Some(c) =>
             val (p0, p1) = p.splitAt(p.lastIndexOf(" ") + 1)
