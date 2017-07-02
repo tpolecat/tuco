@@ -11,8 +11,7 @@ For our next **Tuco** program we will build a telnet server that plays a guessin
 
 ```tut:silent
 import scala.util.{ Random, Try, Success, Failure }
-import cats._, cats.implicits._, cats.effect.IO
-import cats.kernel.Comparison.{ LessThan => LT, GreaterThan => GT, EqualTo => EQ }
+import cats._, cats.implicits._, cats.kernel.Comparison._, cats.effect.IO
 import tuco._, Tuco._
 ```
 
@@ -51,10 +50,10 @@ With that out of the way we can implement our game loop. We read an `Int` then c
 ```tut:silent
 def loop(answer: Int, guesses: Int): SessionIO[Unit] =
   readInt("Your guess? ").map(_ comparison answer).flatMap {
-    case LT => writeLn("Nope, higher!") *> loop(answer, guesses + 1)
-    case GT => writeLn("Nope, lower!")  *> loop(answer, guesses + 1)
-    case EQ => if (guesses == 1) writeLn("Good guess! You won on the first try!")
-               else              writeLn(s"Right! It took $guesses tries.")
+    case LessThan    => writeLn("Nope, higher!") *> loop(answer, guesses + 1)
+    case GreaterThan => writeLn("Nope, lower!")  *> loop(answer, guesses + 1)
+    case EqualTo     => if (guesses == 1) writeLn("Good guess! You won on the first try!")
+                        else writeLn(s"Right! It took $guesses tries.")
   }
 ```
 
