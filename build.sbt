@@ -5,7 +5,7 @@ lazy val buildSettings = Seq(
   organization := "org.tpolecat",
   licenses ++= Seq(("MIT", url("http://opensource.org/licenses/MIT"))),
   scalaVersion := "2.12.2",
-  crossScalaVersions := Seq("2.10.6", "2.11.11", scalaVersion.value),
+  crossScalaVersions := Seq("2.11.11", scalaVersion.value),
   scalacOptions in (Compile, doc) ++= {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, v)) if v <= 11 =>
@@ -117,10 +117,8 @@ lazy val shell = project
   .settings(tucoSettings)
   .settings(publishSettings)
   .settings(
-    resolvers += "bmjames Bintray Repo" at "https://dl.bintray.com/bmjames/maven",
-    libraryDependencies ++= Seq(
-      "net.bmjames" %% "scala-optparse-applicative" % "0.5"
-    )
+    resolvers += Resolver.bintrayRepo("bkirwi", "maven"),
+    libraryDependencies += "com.monovore" %% "decline" % "0.2.2"
   )
 
 lazy val wimpi = project
@@ -136,7 +134,7 @@ lazy val example = project
   .in(file("modules/example"))
   .settings(tucoSettings)
   .settings(noPublishSettings)
-  .dependsOn(core)
+  .dependsOn(shell)
 
 lazy val docs = project
   .in(file("modules/docs"))

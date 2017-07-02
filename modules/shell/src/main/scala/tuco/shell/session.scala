@@ -1,6 +1,9 @@
 package tuco.shell
 
-import scalaz._, Scalaz._
+import cats.Monoid
+import scala.util.Try
+import tuco.util.{ Lens, Zipper }
+import tuco.util.Lens.@>
 
 /**
  * State for a `CommandShell` session with user-defined payload of type `A`.
@@ -34,7 +37,7 @@ object Session {
 
   /** Equivalent to `initial` but uses the `mzero[A]` for the initial payload value. */
   def empty[A: Monoid]: Session[A] =
-    initial(mzero[A])
+    initial(Monoid[A].empty)
 
   /** Module of lenses. */
   object L {
@@ -51,9 +54,9 @@ object Session {
       case _         => History(s :: toList)
     }
     def headOption = toList.headOption
-    def toZipper = Zipper(toList.toStream, "", Stream.empty)
+    def toZipper = Zipper(toList, "", Nil)
     def recall(s: String): Option[String] =
-      s.parseInt.toOption match {
+      Try(s.toInt).toOption match {
         case Some(n) => toList.reverse.lift(n)
         case None    =>
           s match {

@@ -1,19 +1,21 @@
 package tuco.shell
 
-import scalaz._, Scalaz._
-
-import net.bmjames.opts.Parser
+import cats.{ Applicative, Functor }
+import cats.functor.Invariant
+import cats.implicits._
+import com.monovore.decline._
+import tuco.util.Lens.@>
 
 /**
  * Metadata and implementation of an effectful command.
  * @param name The name of the command, as you expect it to be typed by the user. `ls` for example.
  * @param desc A description of the command. `Lists files in the curren directory` for example.
- * @param parser An optparse-applicative `Parser` yielding a effectful state transition.
+ * @param parser A decline `Opts` yielding a effectful state transition.
  */
 case class Command[F[_], A](
   name: String,
   desc: String,
-  parser: Parser[A => F[A]],
+  parser: Opts[A => F[A]],
   complete: (A, String) => F[List[String]]
 ) { outer =>
 
@@ -35,13 +37,13 @@ case class Command[F[_], A](
 
 object Command {
 
-  def apply[F[_]: Applicative, A](name: String, desc: String, parser: Parser[A => F[A]]): Command[F, A] =
-    apply(name, desc, parser, (a, s) => nil[String].point[F])
+  def apply[F[_]: Applicative, A](name: String, desc: String, parser: Opts[A => F[A]]): Command[F, A] =
+    apply(name, desc, parser, (a, s) => List.empty[String].pure[F])
 
   // Command is an invariant functor if `F` is a covariant functor.
-  implicit def commandInvariant[F[_]: Functor]: InvariantFunctor[Command[F, ?]] =
-    new InvariantFunctor[Command[F, ?]] {
-      def xmap[A, B](fa: Command[F, A], ab: A => B, ba: B => A): Command[F, B] =
+  implicit def commandInvariant[F[_]: Functor]: Invariant[Command[F, ?]] =
+    new Invariant[Command[F, ?]] {
+      def imap[A, B](fa: Command[F, A])(ab: A => B)(ba: B => A): Command[F, B] =
         fa.xmap(ab, ba)
     }
 
