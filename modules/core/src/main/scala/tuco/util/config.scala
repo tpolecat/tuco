@@ -8,7 +8,7 @@ import net.wimpi.telnetd.TelnetD
 import net.wimpi.telnetd.shell.Shell
 
 import scala.collection.JavaConverters._
-import scalaz._, Scalaz._, scalaz.effect._
+import cats.effect._
 
 import tuco.free.{ telnetd => FT }
 import tuco.free.telnetd.TelnetDIO

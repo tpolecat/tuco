@@ -1,15 +1,19 @@
 package tuco.hi
+
 import tuco.free._
 import tuco.free.{ connection      => FC }
 import tuco.free.{ basicterminalio => FBT }
+import tuco.util.Zipper
 
-import scalaz._, Scalaz._, scalaz.effect._
+import cats._
+import cats.data.NonEmptyList
+import cats.implicits._
 
 object basicterminalio {
 
-  type Completer = String => FBT.BasicTerminalIOIO[String \/ List[String]]
+  type Completer = String => FBT.BasicTerminalIOIO[Either[String, List[String]]]
   object Completer {
-    val empty: Completer = _ => (nil[String]).right.point[FBT.BasicTerminalIOIO]
+    val empty: Completer = _ => (Right(List.empty[String]) : Either[String, List[String]]).pure[FBT.BasicTerminalIOIO]
   }
 
   // not a zipper because there is not necessarily a focus
@@ -31,7 +35,7 @@ object basicterminalio {
     def comp(c: String) = copy(head = head + c, tail = "")
   }
 
-  private val NoHistory = NonEmptyList("").toZipper
+  private val NoHistory = Zipper.single("")
 
   def readLn(prompt: String, history: Zipper[String], mask: Option[Char], complete: Completer): FBT.BasicTerminalIOIO[String] = {
     import net.wimpi.telnetd.io.BasicTerminalIO.{ COLORINIT => CTRL_A, _ }
@@ -40,7 +44,7 @@ object basicterminalio {
       mask.fold(FBT.write(c))(FBT.write)
 
     def writeMS(s: String): FBT.BasicTerminalIOIO[Unit] =
-      mask.fold(FBT.write(s))(FBT.write(_).replicateM_(s.length))
+      mask.fold(FBT.write(s))(c => List.fill(s.length)(c).traverseU(c => FBT.write(c)).void)
 
     val KILL = 11
     val FORWARD_DELETE = 1305
@@ -76,7 +80,7 @@ object basicterminalio {
 
         case ENTER =>
           FBT.write(CRLF) *> FBT.flush *>
-          s.done.point[FBT.BasicTerminalIOIO]
+          s.done.pure[FBT.BasicTerminalIOIO]
 
         case CTRL_A =>
           FBT.moveLeft(s.offset) *>
@@ -108,9 +112,9 @@ object basicterminalio {
 
         case TABULATOR =>
           complete(s.head) flatMap {
-            case -\/(suf) => FBT.eraseToEndOfLine *> writeMS(suf) *> go(s.comp(suf))
-            case \/-(Nil) => go(s)
-            case \/-(cs)  =>
+            case Left(suf) => FBT.eraseToEndOfLine *> writeMS(suf) *> go(s.comp(suf))
+            case Right(Nil) => go(s)
+            case Right(cs)  =>
               // TODO: prompt if more than N completions
               for {
                 _ <- FBT.write(CRLF)

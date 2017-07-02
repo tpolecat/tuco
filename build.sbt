@@ -26,7 +26,7 @@ lazy val commonSettings = Seq(
     "-language:implicitConversions",
     "-language:experimental.macros",
     "-unchecked",
-    "-Xlint",
+    // "-Xlint",
     "-Yno-adapted-args",
     "-Ywarn-dead-code",
     "-Ywarn-value-discard"
@@ -105,8 +105,8 @@ lazy val core = project
   .settings(publishSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "org.scalaz"  %% "scalaz-core"   % "7.2.7",
-      "org.scalaz"  %% "scalaz-effect" % "7.2.7"
+      "org.typelevel"  %% "cats"        % "0.9.0",
+      "org.typelevel"  %% "cats-effect" % "0.3"
     )
   )
 
@@ -136,7 +136,7 @@ lazy val example = project
   .in(file("modules/example"))
   .settings(tucoSettings)
   .settings(noPublishSettings)
-  .dependsOn(shell)
+  .dependsOn(core)
 
 lazy val docs = project
   .in(file("modules/docs"))

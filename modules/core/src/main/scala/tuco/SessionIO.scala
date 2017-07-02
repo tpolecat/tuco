@@ -3,8 +3,9 @@ package tuco
 import tuco.free.{ connection    => FC }
 import tuco.hi.{ connection      => HC }
 import tuco.hi.{ basicterminalio => HBT }
+import tuco.util.Zipper
 
-import scalaz._, Scalaz._
+import cats.implicits._
 
 /** Module of SesionIO constructors. */
 object SessionIO extends SessionIOFunctions {
@@ -13,7 +14,7 @@ object SessionIO extends SessionIOFunctions {
     def delay[A](a: => A): SessionIO[A] = FC.delay(a)
 
     /** Construct a new constant-value program. */
-    def pure[A](a: A): SessionIO[A] = a.point[SessionIO]
+    def pure[A](a: A): SessionIO[A] = a.pure[SessionIO]
 
     /** The unit program, . */
     val unit: SessionIO[Unit] = pure(())
@@ -40,7 +41,7 @@ trait SessionIOFunctions {
   /** Read given a prompt and history. */
   def readLn(
     prompt: String,
-    history: Zipper[String] = NonEmptyList("").toZipper,
+    history: Zipper[String] = Zipper.single(""),
     mask: Option[Char] = None,
     complete: HBT.Completer = HBT.Completer.empty
   ): SessionIO[String] =
