@@ -23,7 +23,8 @@ Sometimes it's easier to come in by the window. **Tuco** is a slightly cleaned-u
 Add the dependency to your `build.sbt` thus:
 
 ```scala
-libraryDependencies += "org.tpolecat" %% "tuco" % "0.2.0"
+libraryDependencies += "org.tpolecat" %% "tuco"       % "0.2.0" // either this one
+libraryDependencies += "org.tpolecat" %% "tuco-shell" % "0.2.0" // or this one, which includes the shell API
 ```
 
 Obviously this is *very early software.* Please experiment and contribute code or suggestions, but don't rely on it for anything important yet unless you are prepared to rewrite things.
