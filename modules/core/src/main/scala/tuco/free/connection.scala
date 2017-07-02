@@ -1,7 +1,10 @@
 package tuco.free
-import tuco.util.Capture
+//import tuco.util.Capture
 
-import scalaz.{ Catchable, Free => F, Kleisli, Monad, ~>, \/ }
+import cats.{ Monad, MonadError, ~> }
+import cats.data.Kleisli
+import cats.free.{ Free => F }
+import cats.effect.Sync
 
 import java.lang.String
 import net.wimpi.telnetd.TelnetD
@@ -29,9 +32,9 @@ object connection {
    * @group Algebra
    */
   sealed trait ConnectionOp[A] {
-    protected def primitive[M[_]: Monad: Capture](f: Connection => A): Kleisli[M, Connection, A] =
-      Kleisli((s: Connection) => Capture[M].apply(f(s)))
-    def defaultTransK[M[_]: Monad: Catchable: Capture]: Kleisli[M, Connection, A]
+    protected def primitive[M[_]: Sync](f: Connection => A): Kleisli[M, Connection, A] =
+      Kleisli((s: Connection) => Sync[M].delay(f(s)))
+    def defaultTransK[M[_]: Sync]: Kleisli[M, Connection, A]
   }
 
   /**
@@ -45,7 +48,7 @@ object connection {
     implicit val ConnectionKleisliTrans: KleisliTrans.Aux[ConnectionOp, Connection] =
       new KleisliTrans[ConnectionOp] {
         type J = Connection
-        def interpK[M[_]: Monad: Catchable: Capture]: ConnectionOp ~> Kleisli[M, Connection, ?] =
+        def interpK[M[_]: Sync]: ConnectionOp ~> Kleisli[M, Connection, ?] =
           new (ConnectionOp ~> Kleisli[M, Connection, ?]) {
             def apply[A](op: ConnectionOp[A]): Kleisli[M, Connection, A] =
               op.defaultTransK[M]
@@ -54,48 +57,48 @@ object connection {
 
     // Lifting
     case class Lift[Op[_], A, J](j: J, action: F[Op, A], mod: KleisliTrans.Aux[Op, J]) extends ConnectionOp[A] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = Kleisli(_ => mod.transK[M].apply(action).run(j))
+      override def defaultTransK[M[_]: Sync] = Kleisli(_ => mod.transK[M].apply(action).run(j))
     }
 
     // Combinators
-    case class Attempt[A](action: ConnectionIO[A]) extends ConnectionOp[Throwable \/ A] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] =
-        Predef.implicitly[Catchable[Kleisli[M, Connection, ?]]].attempt(action.transK[M])
+    case class Attempt[A](action: ConnectionIO[A]) extends ConnectionOp[Either[Throwable, A]] {
+      override def defaultTransK[M[_]: Sync] =
+        Kleisli((e: Connection) => Sync[M].attempt(action.transK[M].apply(e)))
     }
     case class Pure[A](a: () => A) extends ConnectionOp[A] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_ => a())
+      override def defaultTransK[M[_]: Sync] = primitive(_ => a())
     }
     case class Raw[A](f: Connection => A) extends ConnectionOp[A] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(f)
+      override def defaultTransK[M[_]: Sync] = primitive(f)
     }
 
     // Primitive Operations
     case class  AddConnectionListener(a: ConnectionListener) extends ConnectionOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.addConnectionListener(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.addConnectionListener(a))
     }
     case object Close extends ConnectionOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.close())
+      override def defaultTransK[M[_]: Sync] = primitive(_.close())
     }
     case object GetConnectionData extends ConnectionOp[ConnectionData] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.getConnectionData())
+      override def defaultTransK[M[_]: Sync] = primitive(_.getConnectionData())
     }
     case object GetTerminalIO extends ConnectionOp[BasicTerminalIO] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.getTerminalIO())
+      override def defaultTransK[M[_]: Sync] = primitive(_.getTerminalIO())
     }
     case object IsActive extends ConnectionOp[Boolean] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.isActive())
+      override def defaultTransK[M[_]: Sync] = primitive(_.isActive())
     }
     case class  ProcessConnectionEvent(a: ConnectionEvent) extends ConnectionOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.processConnectionEvent(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.processConnectionEvent(a))
     }
     case class  RemoveConnectionListener(a: ConnectionListener) extends ConnectionOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.removeConnectionListener(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.removeConnectionListener(a))
     }
     case object Run extends ConnectionOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.run())
+      override def defaultTransK[M[_]: Sync] = primitive(_.run())
     }
     case class  SetNextShell(a: String) extends ConnectionOp[Boolean] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.setNextShell(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.setNextShell(a))
     }
 
   }
@@ -112,20 +115,20 @@ object connection {
    * Catchable instance for [[ConnectionIO]].
    * @group Typeclass Instances
    */
-  implicit val CatchableConnectionIO: Catchable[ConnectionIO] =
-    new Catchable[ConnectionIO] {
-      def attempt[A](f: ConnectionIO[A]): ConnectionIO[Throwable \/ A] = connection.attempt(f)
-      def fail[A](err: Throwable): ConnectionIO[A] = connection.delay(throw err)
-    }
+//  implicit val CatchableConnectionIO: Catchable[ConnectionIO] =
+//    new Catchable[ConnectionIO] {
+//      def attempt[A](f: ConnectionIO[A]): ConnectionIO[Throwable Either A] = connection.attempt(f)
+//      def fail[A](err: Throwable): ConnectionIO[A] = connection.delay(throw err)
+//    }
 
   /**
    * Capture instance for [[ConnectionIO]].
    * @group Typeclass Instances
    */
-  implicit val CaptureConnectionIO: Capture[ConnectionIO] =
-    new Capture[ConnectionIO] {
-      def apply[A](a: => A): ConnectionIO[A] = connection.delay(a)
-    }
+//  implicit val CaptureConnectionIO: Capture[ConnectionIO] =
+//    new Capture[ConnectionIO] {
+//      def apply[A](a: => A): ConnectionIO[A] = connection.delay(a)
+//    }
 
   /**
    * Lift a different type of program that has a default Kleisli interpreter.
@@ -135,11 +138,11 @@ object connection {
     F.liftF(Lift(j, action, mod))
 
   /**
-   * Lift a ConnectionIO[A] into an exception-capturing ConnectionIO[Throwable \/ A].
+   * Lift a ConnectionIO[A] into an exception-capturing ConnectionIO[Throwable Either A].
    * @group Constructors (Lifting)
    */
-  def attempt[A](a: ConnectionIO[A]): ConnectionIO[Throwable \/ A] =
-    F.liftF[ConnectionOp, Throwable \/ A](Attempt(a))
+  def attempt[A](a: ConnectionIO[A]): ConnectionIO[Throwable Either A] =
+    F.liftF[ConnectionOp, Throwable Either A](Attempt(a))
 
   /**
    * Non-strict unit for capturing effects.
@@ -213,21 +216,21 @@ object connection {
   * Natural transformation from `ConnectionOp` to `Kleisli` for the given `M`, consuming a `net.wimpi.telnetd.net.Connection`.
   * @group Algebra
   */
-  def interpK[M[_]: Monad: Catchable: Capture]: ConnectionOp ~> Kleisli[M, Connection, ?] =
+  def interpK[M[_]: Sync]: ConnectionOp ~> Kleisli[M, Connection, ?] =
    ConnectionOp.ConnectionKleisliTrans.interpK
 
  /**
   * Natural transformation from `ConnectionIO` to `Kleisli` for the given `M`, consuming a `net.wimpi.telnetd.net.Connection`.
   * @group Algebra
   */
-  def transK[M[_]: Monad: Catchable: Capture]: ConnectionIO ~> Kleisli[M, Connection, ?] =
+  def transK[M[_]: Sync]: ConnectionIO ~> Kleisli[M, Connection, ?] =
    ConnectionOp.ConnectionKleisliTrans.transK
 
  /**
   * Natural transformation from `ConnectionIO` to `M`, given a `net.wimpi.telnetd.net.Connection`.
   * @group Algebra
   */
- def trans[M[_]: Monad: Catchable: Capture](c: Connection): ConnectionIO ~> M =
+ def trans[M[_]: Sync](c: Connection): ConnectionIO ~> M =
    ConnectionOp.ConnectionKleisliTrans.trans[M](c)
 
   /**
@@ -235,7 +238,7 @@ object connection {
    * @group Algebra
    */
   implicit class ConnectionIOOps[A](ma: ConnectionIO[A]) {
-    def transK[M[_]: Monad: Catchable: Capture]: Kleisli[M, Connection, A] =
+    def transK[M[_]: Sync]: Kleisli[M, Connection, A] =
       ConnectionOp.ConnectionKleisliTrans.transK[M].apply(ma)
   }
 

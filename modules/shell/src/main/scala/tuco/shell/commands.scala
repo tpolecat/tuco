@@ -1,14 +1,11 @@
 package tuco.shell
 
+import cats._, cats.implicits._
+import com.monovore.decline.{ Command => Cmd, _ }
 import tuco.free._
 import tuco.free.{ connection => FC }
 import tuco.free.connection.ConnectionIO
 import tuco.hi.{ connection   => HC }
-
-import scalaz.{ Success => _, Failure => _, _ }, Scalaz._
-
-import net.bmjames.opts. { Parser => _, _}
-import net.bmjames.opts.types._
 
 /**
  * A list of `Command` values for a given session type, with methods to interpret an input string,
@@ -29,7 +26,7 @@ case class Commands[A](toList: List[Command[ConnectionIO, Session[A]]]) {
    */
   def interp(s: String): Session[A] => ConnectionIO[Session[A]] =
     tokenize(s) match {
-      case Nil    => _.point[ConnectionIO]
+      case Nil    => _.pure[ConnectionIO]
       case h :: t => interpT(h, t)
     }
 
@@ -42,11 +39,10 @@ case class Commands[A](toList: List[Command[ConnectionIO, Session[A]]]) {
     toList.filter(_.name.startsWith(c)) match {
       case Nil      => s => HC.writeLn("Unknown command. Try 'help' for help.").as(s)
       case i :: Nil =>
-        val pinfo  = info(i.parser <*> helper, progDesc(i.desc))
-        val pprefs = prefs(idm[PrefsMod])
-        execParserPure(pprefs, pinfo, args) match {
-          case Success(f) => f
-          case Failure(f) => s => HC.writeLn(renderFailure(f, i.name)._1).as(s)
+        val c = Cmd(name = i.name, header = i.desc)(i.parser)
+        c.parse(args) match {
+          case Right(f) => f
+          case Left(h)  => s => HC.writeLn(h.toString).as(s)
         }
       case is      => s => HC.writeLn("Ambiguous command matches " + is.map(_.name).mkString(" ")).as(s)
     }
@@ -63,6 +59,9 @@ object Commands {
     Commands(is.toList)
 
   implicit def CommandsMonoid[A]: Monoid[Commands[A]] =
-    Monoid.instance((a, b) => Commands(a.toList ++ b.toList), empty)
+    new Monoid[Commands[A]] {
+      def empty = Commands.empty[A]
+      def combine(a: Commands[A], b: Commands[A]) = Commands(a.toList ++ b.toList)
+    }
 
 }

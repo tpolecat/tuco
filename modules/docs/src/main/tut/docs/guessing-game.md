@@ -10,8 +10,8 @@ title: A Guessing Game
 For our next **Tuco** program we will build a telnet server that plays a guessing game with the user. We will need some additional imports.
 
 ```tut:silent
-import scala.util.Random
-import scalaz._, Scalaz._, Ordering._
+import scala.util.{ Random, Try, Success, Failure }
+import cats._, cats.implicits._, cats.kernel.Comparison._, cats.effect.IO
 import tuco._, Tuco._
 ```
 
@@ -39,7 +39,7 @@ Because we will be reading an `Int` from the user, we need to provide a program 
 
 ```tut:silent
 def readInt(prompt: String): SessionIO[Int] =
-  readLn(prompt).map(_.parseInt).flatMap {
+  readLn(prompt).map(s => Try(s.toInt)).flatMap {
     case Failure(_) => writeLn("That's not a number! Try again.") *> readInt(prompt)
     case Success(n) => SessionIO.pure(n)
   }
@@ -49,11 +49,11 @@ With that out of the way we can implement our game loop. We read an `Int` then c
 
 ```tut:silent
 def loop(answer: Int, guesses: Int): SessionIO[Unit] =
-  readInt("Your guess? ").map(_ cmp answer).flatMap {
-    case LT => writeLn("Nope, higher!") *> loop(answer, guesses + 1)
-    case GT => writeLn("Nope, lower!")  *> loop(answer, guesses + 1)
-    case EQ => if (guesses == 1) writeLn("Good guess! You won on the first try!")
-               else              writeLn(s"Right! It took $guesses tries.")
+  readInt("Your guess? ").map(_ comparison answer).flatMap {
+    case LessThan    => writeLn("Nope, higher!") *> loop(answer, guesses + 1)
+    case GreaterThan => writeLn("Nope, lower!")  *> loop(answer, guesses + 1)
+    case EqualTo     => if (guesses == 1) writeLn("Good guess! You won on the first try!")
+                        else writeLn(s"Right! It took $guesses tries.")
   }
 ```
 
@@ -88,18 +88,18 @@ val test = Expect(conf).dialog(
 Start the server up.
 
 ```tut
-val stop = conf.start.unsafePerformIO
+val stop = conf.start.unsafeRunSync
 ```
 
 We can now connect on port 6666 via telnet and enjoy our fabulous game.
 
 ```tut:evaluated
 // run our test and ensure the server stops; the call to stop below is a no-op
-println(test.ensuring(stop).unsafePerformIO)
+println(test.handleErrorWith(_ => stop.as("oops")).unsafeRunSync)
 ```
 
 Shut the server down when you're done playing.
 
 ```tut
-stop.unsafePerformIO
+stop.unsafeRunSync
 ```

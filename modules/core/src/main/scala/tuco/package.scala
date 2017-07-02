@@ -4,8 +4,6 @@ import tuco.free.{ telnetd    => FT }
 import tuco.hi.{ connection      => HC }
 import tuco.hi.{ basicterminalio => HBT }
 
-import scalaz._, Scalaz._
-
 package object tuco {
 
   type Config           = util.Config

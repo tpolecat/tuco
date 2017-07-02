@@ -3,8 +3,11 @@ package tuco.hi
 import tuco.free.{ connection => FC }
 import tuco.free.{ basicterminalio => FBT }
 import tuco.hi.{ basicterminalio => HBT }
+import tuco.util.Zipper
 
-import scalaz._, Scalaz._
+import cats._
+import cats.data._
+import cats.implicits._
 
 import net.wimpi.telnetd.io.BasicTerminalIO.CRLF
 
@@ -24,7 +27,7 @@ object connection {
   /** Read given a prompt and history. */
   def readLn(
     prompt: String,
-    history: Zipper[String] = NonEmptyList("").toZipper,
+    history: Zipper[String] = Zipper.single(""),
     mask: Option[Char] = None,
     complete: HBT.Completer = HBT.Completer.empty
   ): FC.ConnectionIO[String] =

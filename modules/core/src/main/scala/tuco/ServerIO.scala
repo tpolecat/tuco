@@ -1,7 +1,7 @@
 package tuco
 
 import tuco.free.{ telnetd    => FT }
-import scalaz._, Scalaz._
+import cats.implicits._
 
 object ServerIO extends ServerIOFunctions {
 
@@ -9,7 +9,7 @@ object ServerIO extends ServerIOFunctions {
   def delay[A](a: => A): ServerIO[A] = FT.delay(a)
 
   /** Construct a new constant-value program. */
-  def pure[A](a: A): ServerIO[A] = a.point[ServerIO]
+  def pure[A](a: A): ServerIO[A] = a.pure[ServerIO]
 
   /** The unit program, . */
   val unit: ServerIO[Unit] = pure(())

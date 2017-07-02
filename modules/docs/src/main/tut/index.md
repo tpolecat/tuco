@@ -4,6 +4,9 @@ title:  "Home"
 section: "home"
 ---
 
+[![Build Status](https://travis-ci.org/tpolecat/tuco.svg?branch=master)](https://travis-ci.org/tpolecat/tuco)
+[![Gitter chat](https://badges.gitter.im/tpolecat/tuco.png)](https://gitter.im/tpolecat/tuco)
+
 > *"There are two kinds of spurs, my friend. Those that come in by the door … [and] those that come in by the window."*
 >
 > — Tuco Benedicto Pacifico Juan Maria Ramirez
@@ -12,15 +15,16 @@ Sometimes it's easier to come in by the window. **Tuco** is a slightly cleaned-u
 
 ### Quick Start
 
-**Tuco** is available for **Scala 2.10**, **2.11**, and **2.12** with
+**Tuco** is available for **2.11**, and **2.12** with
 
-- scalaz 7.2
-- scala-optparse-applicative 0.5
+- cats 0.9.0
+- cats-effect 0.3
+- decline 0.2.2
 
 Add the dependency to your `build.sbt` thus:
 
 ```scala
-libraryDependencies += "org.tpolecat" %% "tuco" % "0.1.1"
+libraryDependencies += "org.tpolecat" %% "tuco" % "0.2.0"
 ```
 
 Obviously this is *very early software.* Please experiment and contribute code or suggestions, but don't rely on it for anything important yet unless you are prepared to rewrite things.

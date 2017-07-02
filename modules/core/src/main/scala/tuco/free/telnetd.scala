@@ -1,9 +1,13 @@
 package tuco.free
-import tuco.util.Capture
+//import tuco.util.Capture
 
-import scalaz.{ Catchable, Free => F, Kleisli, Monad, ~>, \/ }
+import cats.{ Monad, MonadError, ~> }
+import cats.data.Kleisli
+import cats.free.{ Free => F }
+import cats.effect.Sync
 
 import java.lang.String
+import java.util.Properties
 import net.wimpi.telnetd.TelnetD
 import net.wimpi.telnetd.io.BasicTerminalIO
 import net.wimpi.telnetd.net.Connection
@@ -30,9 +34,9 @@ object telnetd {
    * @group Algebra
    */
   sealed trait TelnetDOp[A] {
-    protected def primitive[M[_]: Monad: Capture](f: TelnetD => A): Kleisli[M, TelnetD, A] =
-      Kleisli((s: TelnetD) => Capture[M].apply(f(s)))
-    def defaultTransK[M[_]: Monad: Catchable: Capture]: Kleisli[M, TelnetD, A]
+    protected def primitive[M[_]: Sync](f: TelnetD => A): Kleisli[M, TelnetD, A] =
+      Kleisli((s: TelnetD) => Sync[M].delay(f(s)))
+    def defaultTransK[M[_]: Sync]: Kleisli[M, TelnetD, A]
   }
 
   /**
@@ -46,7 +50,7 @@ object telnetd {
     implicit val TelnetDKleisliTrans: KleisliTrans.Aux[TelnetDOp, TelnetD] =
       new KleisliTrans[TelnetDOp] {
         type J = TelnetD
-        def interpK[M[_]: Monad: Catchable: Capture]: TelnetDOp ~> Kleisli[M, TelnetD, ?] =
+        def interpK[M[_]: Sync]: TelnetDOp ~> Kleisli[M, TelnetD, ?] =
           new (TelnetDOp ~> Kleisli[M, TelnetD, ?]) {
             def apply[A](op: TelnetDOp[A]): Kleisli[M, TelnetD, A] =
               op.defaultTransK[M]
@@ -55,30 +59,33 @@ object telnetd {
 
     // Lifting
     case class Lift[Op[_], A, J](j: J, action: F[Op, A], mod: KleisliTrans.Aux[Op, J]) extends TelnetDOp[A] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = Kleisli(_ => mod.transK[M].apply(action).run(j))
+      override def defaultTransK[M[_]: Sync] = Kleisli(_ => mod.transK[M].apply(action).run(j))
     }
 
     // Combinators
-    case class Attempt[A](action: TelnetDIO[A]) extends TelnetDOp[Throwable \/ A] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] =
-        Predef.implicitly[Catchable[Kleisli[M, TelnetD, ?]]].attempt(action.transK[M])
+    case class Attempt[A](action: TelnetDIO[A]) extends TelnetDOp[Either[Throwable, A]] {
+      override def defaultTransK[M[_]: Sync] =
+        Kleisli((e: TelnetD) => Sync[M].attempt(action.transK[M].apply(e)))
     }
     case class Pure[A](a: () => A) extends TelnetDOp[A] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_ => a())
+      override def defaultTransK[M[_]: Sync] = primitive(_ => a())
     }
     case class Raw[A](f: TelnetD => A) extends TelnetDOp[A] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(f)
+      override def defaultTransK[M[_]: Sync] = primitive(f)
     }
 
     // Primitive Operations
     case class  GetPortListener(a: String) extends TelnetDOp[PortListener] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.getPortListener(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.getPortListener(a))
+    }
+    case class  PrepareListener(a: String, b: Properties) extends TelnetDOp[Unit] {
+      override def defaultTransK[M[_]: Sync] = primitive(_.prepareListener(a, b))
     }
     case object Start extends TelnetDOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.start())
+      override def defaultTransK[M[_]: Sync] = primitive(_.start())
     }
     case object Stop extends TelnetDOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.stop())
+      override def defaultTransK[M[_]: Sync] = primitive(_.stop())
     }
 
   }
@@ -95,20 +102,20 @@ object telnetd {
    * Catchable instance for [[TelnetDIO]].
    * @group Typeclass Instances
    */
-  implicit val CatchableTelnetDIO: Catchable[TelnetDIO] =
-    new Catchable[TelnetDIO] {
-      def attempt[A](f: TelnetDIO[A]): TelnetDIO[Throwable \/ A] = telnetd.attempt(f)
-      def fail[A](err: Throwable): TelnetDIO[A] = telnetd.delay(throw err)
-    }
+//  implicit val CatchableTelnetDIO: Catchable[TelnetDIO] =
+//    new Catchable[TelnetDIO] {
+//      def attempt[A](f: TelnetDIO[A]): TelnetDIO[Throwable Either A] = telnetd.attempt(f)
+//      def fail[A](err: Throwable): TelnetDIO[A] = telnetd.delay(throw err)
+//    }
 
   /**
    * Capture instance for [[TelnetDIO]].
    * @group Typeclass Instances
    */
-  implicit val CaptureTelnetDIO: Capture[TelnetDIO] =
-    new Capture[TelnetDIO] {
-      def apply[A](a: => A): TelnetDIO[A] = telnetd.delay(a)
-    }
+//  implicit val CaptureTelnetDIO: Capture[TelnetDIO] =
+//    new Capture[TelnetDIO] {
+//      def apply[A](a: => A): TelnetDIO[A] = telnetd.delay(a)
+//    }
 
   /**
    * Lift a different type of program that has a default Kleisli interpreter.
@@ -118,11 +125,11 @@ object telnetd {
     F.liftF(Lift(j, action, mod))
 
   /**
-   * Lift a TelnetDIO[A] into an exception-capturing TelnetDIO[Throwable \/ A].
+   * Lift a TelnetDIO[A] into an exception-capturing TelnetDIO[Throwable Either A].
    * @group Constructors (Lifting)
    */
-  def attempt[A](a: TelnetDIO[A]): TelnetDIO[Throwable \/ A] =
-    F.liftF[TelnetDOp, Throwable \/ A](Attempt(a))
+  def attempt[A](a: TelnetDIO[A]): TelnetDIO[Throwable Either A] =
+    F.liftF[TelnetDOp, Throwable Either A](Attempt(a))
 
   /**
    * Non-strict unit for capturing effects.
@@ -147,6 +154,12 @@ object telnetd {
   /**
    * @group Constructors (Primitives)
    */
+  def prepareListener(a: String, b: Properties): TelnetDIO[Unit] =
+    F.liftF(PrepareListener(a, b))
+
+  /**
+   * @group Constructors (Primitives)
+   */
   val start: TelnetDIO[Unit] =
     F.liftF(Start)
 
@@ -160,21 +173,21 @@ object telnetd {
   * Natural transformation from `TelnetDOp` to `Kleisli` for the given `M`, consuming a `net.wimpi.telnetd.TelnetD`.
   * @group Algebra
   */
-  def interpK[M[_]: Monad: Catchable: Capture]: TelnetDOp ~> Kleisli[M, TelnetD, ?] =
+  def interpK[M[_]: Sync]: TelnetDOp ~> Kleisli[M, TelnetD, ?] =
    TelnetDOp.TelnetDKleisliTrans.interpK
 
  /**
   * Natural transformation from `TelnetDIO` to `Kleisli` for the given `M`, consuming a `net.wimpi.telnetd.TelnetD`.
   * @group Algebra
   */
-  def transK[M[_]: Monad: Catchable: Capture]: TelnetDIO ~> Kleisli[M, TelnetD, ?] =
+  def transK[M[_]: Sync]: TelnetDIO ~> Kleisli[M, TelnetD, ?] =
    TelnetDOp.TelnetDKleisliTrans.transK
 
  /**
   * Natural transformation from `TelnetDIO` to `M`, given a `net.wimpi.telnetd.TelnetD`.
   * @group Algebra
   */
- def trans[M[_]: Monad: Catchable: Capture](c: TelnetD): TelnetDIO ~> M =
+ def trans[M[_]: Sync](c: TelnetD): TelnetDIO ~> M =
    TelnetDOp.TelnetDKleisliTrans.trans[M](c)
 
   /**
@@ -182,7 +195,7 @@ object telnetd {
    * @group Algebra
    */
   implicit class TelnetDIOOps[A](ma: TelnetDIO[A]) {
-    def transK[M[_]: Monad: Catchable: Capture]: Kleisli[M, TelnetD, A] =
+    def transK[M[_]: Sync]: Kleisli[M, TelnetD, A] =
       TelnetDOp.TelnetDKleisliTrans.transK[M].apply(ma)
   }
 

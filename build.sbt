@@ -5,7 +5,7 @@ lazy val buildSettings = Seq(
   organization := "org.tpolecat",
   licenses ++= Seq(("MIT", url("http://opensource.org/licenses/MIT"))),
   scalaVersion := "2.12.2",
-  crossScalaVersions := Seq("2.10.6", "2.11.11", scalaVersion.value),
+  crossScalaVersions := Seq("2.11.11", scalaVersion.value),
   scalacOptions in (Compile, doc) ++= {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, v)) if v <= 11 =>
@@ -26,7 +26,7 @@ lazy val commonSettings = Seq(
     "-language:implicitConversions",
     "-language:experimental.macros",
     "-unchecked",
-    "-Xlint",
+    // "-Xlint",
     "-Yno-adapted-args",
     "-Ywarn-dead-code",
     "-Ywarn-value-discard"
@@ -105,8 +105,8 @@ lazy val core = project
   .settings(publishSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "org.scalaz"  %% "scalaz-core"   % "7.2.7",
-      "org.scalaz"  %% "scalaz-effect" % "7.2.7"
+      "org.typelevel"  %% "cats"        % "0.9.0",
+      "org.typelevel"  %% "cats-effect" % "0.3"
     )
   )
 
@@ -117,10 +117,8 @@ lazy val shell = project
   .settings(tucoSettings)
   .settings(publishSettings)
   .settings(
-    resolvers += "bmjames Bintray Repo" at "https://dl.bintray.com/bmjames/maven",
-    libraryDependencies ++= Seq(
-      "net.bmjames" %% "scala-optparse-applicative" % "0.5"
-    )
+    resolvers += Resolver.bintrayRepo("bkirwi", "maven"),
+    libraryDependencies += "com.monovore" %% "decline" % "0.2.2"
   )
 
 lazy val wimpi = project
@@ -140,9 +138,9 @@ lazy val example = project
 
 lazy val docs = project
   .in(file("modules/docs"))
+  .dependsOn(shell)
   .settings(tucoSettings)
   .settings(noPublishSettings)
-  .dependsOn(shell)
   .enablePlugins(MicrositesPlugin)
   .settings(
     micrositeName             := "tuco",

@@ -1,9 +1,9 @@
 package example
 
-import scalaz.effect.{ IO, SafeApp }
+import cats.effect.IO
 import tuco._, Tuco._
 
-object HelloWorld extends SafeApp {
+object HelloWorld {
 
   // Let's define a user session.
   val hello: SessionIO[Unit] =
@@ -14,7 +14,7 @@ object HelloWorld extends SafeApp {
     } yield ()
 
   // Simple server on the given port.
-  override def runc: IO[Unit] =
-    Config(hello, 6666).run(simpleServer)
+  def main(args: Array[String]): Unit =
+    Config(hello, 6666).run(simpleServer).unsafeRunSync
 
 }

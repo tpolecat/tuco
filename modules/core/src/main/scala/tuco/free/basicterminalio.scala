@@ -1,7 +1,10 @@
 package tuco.free
-import tuco.util.Capture
+//import tuco.util.Capture
 
-import scalaz.{ Catchable, Free => F, Kleisli, Monad, ~>, \/ }
+import cats.{ Monad, MonadError, ~> }
+import cats.data.Kleisli
+import cats.free.{ Free => F }
+import cats.effect.Sync
 
 import java.lang.String
 import net.wimpi.telnetd.TelnetD
@@ -29,9 +32,9 @@ object basicterminalio {
    * @group Algebra
    */
   sealed trait BasicTerminalIOOp[A] {
-    protected def primitive[M[_]: Monad: Capture](f: BasicTerminalIO => A): Kleisli[M, BasicTerminalIO, A] =
-      Kleisli((s: BasicTerminalIO) => Capture[M].apply(f(s)))
-    def defaultTransK[M[_]: Monad: Catchable: Capture]: Kleisli[M, BasicTerminalIO, A]
+    protected def primitive[M[_]: Sync](f: BasicTerminalIO => A): Kleisli[M, BasicTerminalIO, A] =
+      Kleisli((s: BasicTerminalIO) => Sync[M].delay(f(s)))
+    def defaultTransK[M[_]: Sync]: Kleisli[M, BasicTerminalIO, A]
   }
 
   /**
@@ -45,7 +48,7 @@ object basicterminalio {
     implicit val BasicTerminalIOKleisliTrans: KleisliTrans.Aux[BasicTerminalIOOp, BasicTerminalIO] =
       new KleisliTrans[BasicTerminalIOOp] {
         type J = BasicTerminalIO
-        def interpK[M[_]: Monad: Catchable: Capture]: BasicTerminalIOOp ~> Kleisli[M, BasicTerminalIO, ?] =
+        def interpK[M[_]: Sync]: BasicTerminalIOOp ~> Kleisli[M, BasicTerminalIO, ?] =
           new (BasicTerminalIOOp ~> Kleisli[M, BasicTerminalIO, ?]) {
             def apply[A](op: BasicTerminalIOOp[A]): Kleisli[M, BasicTerminalIO, A] =
               op.defaultTransK[M]
@@ -54,147 +57,147 @@ object basicterminalio {
 
     // Lifting
     case class Lift[Op[_], A, J](j: J, action: F[Op, A], mod: KleisliTrans.Aux[Op, J]) extends BasicTerminalIOOp[A] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = Kleisli(_ => mod.transK[M].apply(action).run(j))
+      override def defaultTransK[M[_]: Sync] = Kleisli(_ => mod.transK[M].apply(action).run(j))
     }
 
     // Combinators
-    case class Attempt[A](action: BasicTerminalIOIO[A]) extends BasicTerminalIOOp[Throwable \/ A] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] =
-        Predef.implicitly[Catchable[Kleisli[M, BasicTerminalIO, ?]]].attempt(action.transK[M])
+    case class Attempt[A](action: BasicTerminalIOIO[A]) extends BasicTerminalIOOp[Either[Throwable, A]] {
+      override def defaultTransK[M[_]: Sync] =
+        Kleisli((e: BasicTerminalIO) => Sync[M].attempt(action.transK[M].apply(e)))
     }
     case class Pure[A](a: () => A) extends BasicTerminalIOOp[A] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_ => a())
+      override def defaultTransK[M[_]: Sync] = primitive(_ => a())
     }
     case class Raw[A](f: BasicTerminalIO => A) extends BasicTerminalIOOp[A] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(f)
+      override def defaultTransK[M[_]: Sync] = primitive(f)
     }
 
     // Primitive Operations
     case object Bell extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.bell())
+      override def defaultTransK[M[_]: Sync] = primitive(_.bell())
     }
     case object Close extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.close())
+      override def defaultTransK[M[_]: Sync] = primitive(_.close())
     }
     case class  DefineScrollRegion(a: Int, b: Int) extends BasicTerminalIOOp[Boolean] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.defineScrollRegion(a, b))
+      override def defaultTransK[M[_]: Sync] = primitive(_.defineScrollRegion(a, b))
     }
     case object EraseLine extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.eraseLine())
+      override def defaultTransK[M[_]: Sync] = primitive(_.eraseLine())
     }
     case object EraseScreen extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.eraseScreen())
+      override def defaultTransK[M[_]: Sync] = primitive(_.eraseScreen())
     }
     case object EraseToBeginOfLine extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.eraseToBeginOfLine())
+      override def defaultTransK[M[_]: Sync] = primitive(_.eraseToBeginOfLine())
     }
     case object EraseToBeginOfScreen extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.eraseToBeginOfScreen())
+      override def defaultTransK[M[_]: Sync] = primitive(_.eraseToBeginOfScreen())
     }
     case object EraseToEndOfLine extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.eraseToEndOfLine())
+      override def defaultTransK[M[_]: Sync] = primitive(_.eraseToEndOfLine())
     }
     case object EraseToEndOfScreen extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.eraseToEndOfScreen())
+      override def defaultTransK[M[_]: Sync] = primitive(_.eraseToEndOfScreen())
     }
     case object Flush extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.flush())
+      override def defaultTransK[M[_]: Sync] = primitive(_.flush())
     }
     case class  ForceBold(a: Boolean) extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.forceBold(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.forceBold(a))
     }
     case object GetColumns extends BasicTerminalIOOp[Int] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.getColumns())
+      override def defaultTransK[M[_]: Sync] = primitive(_.getColumns())
     }
     case object GetRows extends BasicTerminalIOOp[Int] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.getRows())
+      override def defaultTransK[M[_]: Sync] = primitive(_.getRows())
     }
     case object HomeCursor extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.homeCursor())
+      override def defaultTransK[M[_]: Sync] = primitive(_.homeCursor())
     }
     case object IsAutoflushing extends BasicTerminalIOOp[Boolean] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.isAutoflushing())
+      override def defaultTransK[M[_]: Sync] = primitive(_.isAutoflushing())
     }
     case object IsLineWrapping extends BasicTerminalIOOp[Boolean] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.isLineWrapping())
+      override def defaultTransK[M[_]: Sync] = primitive(_.isLineWrapping())
     }
     case object IsSignalling extends BasicTerminalIOOp[Boolean] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.isSignalling())
+      override def defaultTransK[M[_]: Sync] = primitive(_.isSignalling())
     }
     case class  MoveCursor(a: Int, b: Int) extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.moveCursor(a, b))
+      override def defaultTransK[M[_]: Sync] = primitive(_.moveCursor(a, b))
     }
     case class  MoveDown(a: Int) extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.moveDown(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.moveDown(a))
     }
     case class  MoveLeft(a: Int) extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.moveLeft(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.moveLeft(a))
     }
     case class  MoveRight(a: Int) extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.moveRight(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.moveRight(a))
     }
     case class  MoveUp(a: Int) extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.moveUp(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.moveUp(a))
     }
     case object Read extends BasicTerminalIOOp[Int] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.read())
+      override def defaultTransK[M[_]: Sync] = primitive(_.read())
     }
     case object ResetAttributes extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.resetAttributes())
+      override def defaultTransK[M[_]: Sync] = primitive(_.resetAttributes())
     }
     case object ResetTerminal extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.resetTerminal())
+      override def defaultTransK[M[_]: Sync] = primitive(_.resetTerminal())
     }
     case object RestoreCursor extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.restoreCursor())
+      override def defaultTransK[M[_]: Sync] = primitive(_.restoreCursor())
     }
     case class  SetAutoflushing(a: Boolean) extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.setAutoflushing(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.setAutoflushing(a))
     }
     case class  SetBackgroundColor(a: Int) extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.setBackgroundColor(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.setBackgroundColor(a))
     }
     case class  SetBlink(a: Boolean) extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.setBlink(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.setBlink(a))
     }
     case class  SetBold(a: Boolean) extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.setBold(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.setBold(a))
     }
     case class  SetCursor(a: Int, b: Int) extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.setCursor(a, b))
+      override def defaultTransK[M[_]: Sync] = primitive(_.setCursor(a, b))
     }
     case object SetDefaultTerminal extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.setDefaultTerminal())
+      override def defaultTransK[M[_]: Sync] = primitive(_.setDefaultTerminal())
     }
     case class  SetForegroundColor(a: Int) extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.setForegroundColor(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.setForegroundColor(a))
     }
     case class  SetItalic(a: Boolean) extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.setItalic(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.setItalic(a))
     }
     case class  SetLinewrapping(a: Boolean) extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.setLinewrapping(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.setLinewrapping(a))
     }
     case class  SetSignalling(a: Boolean) extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.setSignalling(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.setSignalling(a))
     }
     case class  SetTerminal(a: String) extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.setTerminal(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.setTerminal(a))
     }
     case class  SetUnderlined(a: Boolean) extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.setUnderlined(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.setUnderlined(a))
     }
     case object StoreCursor extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.storeCursor())
+      override def defaultTransK[M[_]: Sync] = primitive(_.storeCursor())
     }
     case class  Write(a: Byte) extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.write(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.write(a))
     }
     case class  Write1(a: Char) extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.write(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.write(a))
     }
     case class  Write2(a: String) extends BasicTerminalIOOp[Unit] {
-      override def defaultTransK[M[_]: Monad: Catchable: Capture] = primitive(_.write(a))
+      override def defaultTransK[M[_]: Sync] = primitive(_.write(a))
     }
 
   }
@@ -211,20 +214,20 @@ object basicterminalio {
    * Catchable instance for [[BasicTerminalIOIO]].
    * @group Typeclass Instances
    */
-  implicit val CatchableBasicTerminalIOIO: Catchable[BasicTerminalIOIO] =
-    new Catchable[BasicTerminalIOIO] {
-      def attempt[A](f: BasicTerminalIOIO[A]): BasicTerminalIOIO[Throwable \/ A] = basicterminalio.attempt(f)
-      def fail[A](err: Throwable): BasicTerminalIOIO[A] = basicterminalio.delay(throw err)
-    }
+//  implicit val CatchableBasicTerminalIOIO: Catchable[BasicTerminalIOIO] =
+//    new Catchable[BasicTerminalIOIO] {
+//      def attempt[A](f: BasicTerminalIOIO[A]): BasicTerminalIOIO[Throwable Either A] = basicterminalio.attempt(f)
+//      def fail[A](err: Throwable): BasicTerminalIOIO[A] = basicterminalio.delay(throw err)
+//    }
 
   /**
    * Capture instance for [[BasicTerminalIOIO]].
    * @group Typeclass Instances
    */
-  implicit val CaptureBasicTerminalIOIO: Capture[BasicTerminalIOIO] =
-    new Capture[BasicTerminalIOIO] {
-      def apply[A](a: => A): BasicTerminalIOIO[A] = basicterminalio.delay(a)
-    }
+//  implicit val CaptureBasicTerminalIOIO: Capture[BasicTerminalIOIO] =
+//    new Capture[BasicTerminalIOIO] {
+//      def apply[A](a: => A): BasicTerminalIOIO[A] = basicterminalio.delay(a)
+//    }
 
   /**
    * Lift a different type of program that has a default Kleisli interpreter.
@@ -234,11 +237,11 @@ object basicterminalio {
     F.liftF(Lift(j, action, mod))
 
   /**
-   * Lift a BasicTerminalIOIO[A] into an exception-capturing BasicTerminalIOIO[Throwable \/ A].
+   * Lift a BasicTerminalIOIO[A] into an exception-capturing BasicTerminalIOIO[Throwable Either A].
    * @group Constructors (Lifting)
    */
-  def attempt[A](a: BasicTerminalIOIO[A]): BasicTerminalIOIO[Throwable \/ A] =
-    F.liftF[BasicTerminalIOOp, Throwable \/ A](Attempt(a))
+  def attempt[A](a: BasicTerminalIOIO[A]): BasicTerminalIOIO[Throwable Either A] =
+    F.liftF[BasicTerminalIOOp, Throwable Either A](Attempt(a))
 
   /**
    * Non-strict unit for capturing effects.
@@ -510,21 +513,21 @@ object basicterminalio {
   * Natural transformation from `BasicTerminalIOOp` to `Kleisli` for the given `M`, consuming a `net.wimpi.telnetd.io.BasicTerminalIO`.
   * @group Algebra
   */
-  def interpK[M[_]: Monad: Catchable: Capture]: BasicTerminalIOOp ~> Kleisli[M, BasicTerminalIO, ?] =
+  def interpK[M[_]: Sync]: BasicTerminalIOOp ~> Kleisli[M, BasicTerminalIO, ?] =
    BasicTerminalIOOp.BasicTerminalIOKleisliTrans.interpK
 
  /**
   * Natural transformation from `BasicTerminalIOIO` to `Kleisli` for the given `M`, consuming a `net.wimpi.telnetd.io.BasicTerminalIO`.
   * @group Algebra
   */
-  def transK[M[_]: Monad: Catchable: Capture]: BasicTerminalIOIO ~> Kleisli[M, BasicTerminalIO, ?] =
+  def transK[M[_]: Sync]: BasicTerminalIOIO ~> Kleisli[M, BasicTerminalIO, ?] =
    BasicTerminalIOOp.BasicTerminalIOKleisliTrans.transK
 
  /**
   * Natural transformation from `BasicTerminalIOIO` to `M`, given a `net.wimpi.telnetd.io.BasicTerminalIO`.
   * @group Algebra
   */
- def trans[M[_]: Monad: Catchable: Capture](c: BasicTerminalIO): BasicTerminalIOIO ~> M =
+ def trans[M[_]: Sync](c: BasicTerminalIO): BasicTerminalIOIO ~> M =
    BasicTerminalIOOp.BasicTerminalIOKleisliTrans.trans[M](c)
 
   /**
@@ -532,7 +535,7 @@ object basicterminalio {
    * @group Algebra
    */
   implicit class BasicTerminalIOIOOps[A](ma: BasicTerminalIOIO[A]) {
-    def transK[M[_]: Monad: Catchable: Capture]: Kleisli[M, BasicTerminalIO, A] =
+    def transK[M[_]: Sync]: Kleisli[M, BasicTerminalIO, A] =
       BasicTerminalIOOp.BasicTerminalIOKleisliTrans.transK[M].apply(ma)
   }
 

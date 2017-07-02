@@ -4,7 +4,7 @@ import tuco.free._
 import tuco.free.{ connection => FC }
 import tuco.hi.{ connection => HC }
 
-import scalaz._, Scalaz.{ some => _, _ }, scalaz.effect._
+import cats.effect.IO
 
 /**
  * `Shell` implementation defined by a `ConnectionIO[Unit]`. This is an adapter that allows the
@@ -14,7 +14,7 @@ import scalaz._, Scalaz.{ some => _, _ }, scalaz.effect._
 abstract class SafeShell(val shellMain: FC.ConnectionIO[Unit]) extends net.wimpi.telnetd.shell.Shell {
 
   final def run(c: net.wimpi.telnetd.net.Connection): Unit =
-    shellMain.transK[IO].run(c).unsafePerformIO
+    shellMain.transK[IO].run(c).unsafeRunSync
 
   import net.wimpi.telnetd.net.ConnectionEvent
   final def connectionIdle(ce: ConnectionEvent): Unit = ()

@@ -1,11 +1,11 @@
 package example
 
-import net.bmjames.opts._
-import scalaz._, Scalaz._, scalaz.effect._
+import com.monovore.decline.{ Command => Cmd, _ }
+import cats._, cats.implicits._, cats.effect._
 import tuco._, Tuco._
 import tuco.shell._
 
-object TodoList extends SafeApp {
+object TodoList {
 
   case class Todo(text: String)
 
@@ -16,11 +16,11 @@ object TodoList extends SafeApp {
 
   // Action that inserts a new item at offset `i` in the list (or first/last when out of bounds).
   def add(index: Int, text: String): TodoAction = ts =>
-    ts.patch(index, List(Todo(text)), 0).point[SessionIO]
+    ts.patch(index, List(Todo(text)), 0).pure[SessionIO]
 
   // Action that deletes the todo at the given index.
   def delete(index: Int): TodoAction = ts =>
-    if (ts.isDefinedAt(index)) ts.patch(index, Nil, 1).point[SessionIO]
+    if (ts.isDefinedAt(index)) ts.patch(index, Nil, 1).pure[SessionIO]
     else writeLn(s"No such todo!").as(ts)
 
   // Action that clears the list out.
@@ -43,23 +43,22 @@ object TodoList extends SafeApp {
   // A command that makes the `add` action above available to the user.
   val addCommand: TodoCommand = {
 
-    // Parser for the index option, which is a 1-based index into the list where we want the new
+    // Opts for the index option, which is a 1-based index into the list where we want the new
     // todo item to appear. We subtract one so we can deal with the zero-based index internally.
-    val ind: Parser[Int] =
-      intOption(
-        help("List index where the todo should appear."),
-        short('i'),
-        long("index"),
-        metavar("<index>"),
-        value(1)
-      ).map(_ - 1)
+    val ind: Opts[Int] =
+      Opts.option[Int](
+        help = "List index where the todo should appear.",
+        short = "i",
+        long = "index",
+        metavar = "index"
+      ).withDefault(1).map(_ - 1)
 
-    // Parser for the text argument.
-    val txt: Parser[String] =
-      strArgument(help("Todo item text."), metavar("\"<text>\""))
+    // Opts for the text argument.
+    val txt: Opts[String] =
+      Opts.argument[String](metavar = "\"text\"")
 
     // We can now construct the final command.
-    Command("add", "Add a new todo.", (ind |@| txt)(add))
+    Command("add", "Add a new todo.", (ind |@| txt).map(add))
       .zoom(Session.L.data[List[Todo]])
 
   }
@@ -67,19 +66,19 @@ object TodoList extends SafeApp {
   // Delete command with its argument defined inlined.
   val deleteCommand: TodoCommand =
     Command("delete", "Delete the specified item.",
-      intArgument(
-        help("Todo item to delete."),
-        metavar("<index>")
+      Opts.argument[Int](
+        // help("Todo item to delete."),
+        metavar = "index"
       ).map(n => delete(n - 1)))
       .zoom(Session.L.data[List[Todo]])
 
   // The list and clear commands takes no arguments at all.
   val listCommand: TodoCommand =
-    Command("list", "List the todo items.", list.point[Parser])
+    Command("list", "List the todo items.", list.pure[Opts])
       .zoom(Session.L.data[List[Todo]])
 
   val clearCommand: TodoCommand =
-    Command("clear", "Clears the todo list.", clear.point[Parser])
+    Command("clear", "Clears the todo list.", clear.pure[Opts])
       .zoom(Session.L.data[List[Todo]])
 
   val TodoCommands = Commands(addCommand, deleteCommand, listCommand, clearCommand)
@@ -98,7 +97,7 @@ object TodoList extends SafeApp {
     } yield ()
 
   // Simple server on the given port.
-  override def runc: IO[Unit] =
-    Config(interact, 6666).run(simpleServer)
+  def main(args: Array[String]): Unit =
+    Config(interact, 6666).run(simpleServer).unsafeRunSync
 
 }

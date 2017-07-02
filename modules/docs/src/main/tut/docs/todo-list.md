@@ -11,11 +11,11 @@ In this tutorial we will step things up a bit by introducing the **Command Shell
 
 ### Preliminaries
 
-First let's deal with imports. Note that we're importing the contents `net.bmjames.opts` from the [**scala-optparse-applicative**](https://github.com/bmjames/scala-optparse-applicative) library, which is included as a dependency of **Tuco**. We will use this functionality to define *parsers* for our commands. We also need `tuco.shell._` here.
+First let's deal with imports. Note that we're importing the contents `com.monovore.decline` from the [**decline**](https://github.com/bkirwi/decline) library, which is included as a dependency of **Tuco**. We will use this functionality to define *parsers* for our commands. We also need `tuco.shell._` here.
 
 ```tut:silent
-import net.bmjames.opts._
-import scalaz._, Scalaz._, scalaz.effect._
+import com.monovore.decline.{ Command => Cmd, _ }
+import cats._, cats.implicits._, cats.effect._
 import tuco._, Tuco._
 import tuco.shell._
 ```
@@ -58,14 +58,14 @@ Our first action will insert a new item at offset `i` in the to-do list. By usin
 
 ```tut:silent
 def add(index: Int, text: String): TodoAction = ts =>
-  ts.patch(index, List(Todo(text)), 0).point[SessionIO]
+  ts.patch(index, List(Todo(text)), 0).pure[SessionIO]
 ```
 
 Our next action deletes the to-do item at the given index. Here we check the index and either point the computed state or complain to the user that the index is out of bound and return the state unchanged.
 
 ```tut:silent
 def delete(index: Int): TodoAction = { ts =>
-  if (ts.isDefinedAt(index)) ts.patch(index, Nil, 1).point[SessionIO]
+  if (ts.isDefinedAt(index)) ts.patch(index, Nil, 1).pure[SessionIO]
   else writeLn(s"No such todo!").as(ts)
 }
 ```
@@ -110,7 +110,7 @@ Recall the `add` action we defined above.
 
 ```tut:silent
 def add(index: Int, text: String): TodoAction = ts =>
-  ts.patch(index, List(Todo(text)), 0).point[SessionIO]
+  ts.patch(index, List(Todo(text)), 0).pure[SessionIO]
 ```
 
 In order to call this action we need to parse two arguments from the commandline that the user types in: the index and the text. And in order to generate useful help documentation we need to provide some metadata about what the options mean. This is exactly what the [**scala-optparse-applicative**](https://github.com/bmjames/scala-optparse-applicative) library does, so **Tuco** relies on it directly.
@@ -118,14 +118,13 @@ In order to call this action we need to parse two arguments from the commandline
 Here is the parser for our `index` argument.
 
 ```tut:silent
-val ind: Parser[Int] =
-  intOption(
-    help("List index where the todo should appear."),
-    short('i'),
-    long("index"),
-    metavar("<index>"),
-    value(1)
-  ).map(_ - 1) // 1-based for the user, 0-based internally
+val ind: Opts[Int] =
+  Opts.option[Int](
+    help = "List index where the todo should appear.",
+    short = "i",
+    long = "index",
+    metavar = "index"
+  ).withDefault(1).map(_ - 1) // 1-based for the user, 0-based internally
 ```
 
 We call `intOption` which constructs a `Parser[Int]` whose behavior is defined by the provided sequence of modifiers:
@@ -139,15 +138,15 @@ We call `intOption` which constructs a `Parser[Int]` whose behavior is defined b
 The second argument to `add` is the to-do item text, which is an arbitrary string. In our command this will be a required *argument* so we use `strArgument` to construct its parser.
 
 ```tut:silent
-val txt: Parser[String] =
-  strArgument(help("Todo item text."), metavar("\"<text>\""))
+val txt: Opts[String] =
+  Opts.argument[String](metavar = "\"text\"")
 ```
 
 We now have what we need to construct a `Command`. We combine the parsers with `|@|` to yield a `Parser[TodoAction]` which is what we need for the third construtor argument.
 
 ```tut:silent
 val addCommand: Command[SessionIO, TodoState] =
-  Command("add", "Add a new todo.", (ind |@| txt)(add))
+  Command("add", "Add a new todo.", (ind |@| txt).map(add))
 ```
 
 ### Generalizing our State
@@ -158,7 +157,7 @@ The state passed by the command shell is called `Session[A]` where the domain-sp
 
 ```tut:silent
 val addCommand: Command[SessionIO, Session[TodoState]] = {
-  Command("add", "Add a new todo.", (ind |@| txt)(add))
+  Command("add", "Add a new todo.", (ind |@| txt).map(add))
     .zoom(Session.L.data[TodoState]) // Session.L is a module of lenses
 }
 ```
@@ -172,9 +171,8 @@ The `delete` command takes a single argument so it's reasonable to write the par
 ```tut:silent
 val deleteCommand = {
   Command("delete", "Delete the specified item.",
-    intArgument(
-      help("Todo item to delete."),
-      metavar("<index>")
+    Opts.argument[Int](
+      metavar = "index"
     ).map(n => delete(n - 1)))
     .zoom(Session.L.data[List[Todo]])
 }
@@ -184,12 +182,12 @@ The list and clear commands takes no arguments at all, so the parsers are simply
 
 ```tut:silent
 val listCommand = {
-  Command("list", "List the todo items.", list.point[Parser])
+  Command("list", "List the todo items.", list.pure[Opts])
     .zoom(Session.L.data[List[Todo]])
 }
 
 val clearCommand = {
-  Command("clear", "Clears the todo list.", clear.point[Parser])
+  Command("clear", "Clears the todo list.", clear.pure[Opts])
     .zoom(Session.L.data[List[Todo]])
 }
 ```
@@ -244,18 +242,18 @@ val test = Expect(conf).dialog(
 ```
 
 ```tut
-val stop = conf.start.unsafePerformIO
+val stop = conf.start.unsafeRunSync
 ```
 
 Here is an example session.
 
 ```tut:evaluated:plain
 // run our test and ensure the server stops; the call to stop below is a no-op
-println(test.ensuring(stop).unsafePerformIO)
+println(test.handleErrorWith(_ => stop.as("oops")).unsafeRunSync)
 ```
 
 Shut the server down when you're done.
 
 ```tut
-stop.unsafePerformIO
+stop.unsafeRunSync
 ```
