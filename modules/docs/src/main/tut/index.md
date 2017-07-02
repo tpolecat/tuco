@@ -17,9 +17,9 @@ Sometimes it's easier to come in by the window. **Tuco** is a slightly cleaned-u
 
 **Tuco** is available for **2.11**, and **2.12** with
 
-- cats 0.9.0
-- cats-effect 0.3
-- decline 0.2.2
+- [cats](https://github.com/typelevel/cats) 0.9.0
+- [cats-effect](https://github.com/typelevel/cats-effect) 0.3
+- [decline](https://github.com/bkirwi/decline) 0.2.2
 
 Add the dependency to your `build.sbt` thus:
 
