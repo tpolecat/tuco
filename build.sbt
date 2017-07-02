@@ -138,9 +138,9 @@ lazy val example = project
 
 lazy val docs = project
   .in(file("modules/docs"))
+  .dependsOn(shell)
   .settings(tucoSettings)
   .settings(noPublishSettings)
-  .dependsOn(shell)
   .enablePlugins(MicrositesPlugin)
   .settings(
     micrositeName             := "tuco",

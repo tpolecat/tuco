@@ -12,6 +12,7 @@ For our first **Tuco** program we will write a telnet server that greets the use
 The first thing we need to do is bring **Tuco** types and constructors into scope. Fine-grained imports are also possible but in most cases this is the expected way to do things.
 
 ```tut:silent
+import cats._, cats.implicits._, cats.effect.IO
 import tuco._, Tuco._
 ```
 
@@ -42,20 +43,20 @@ val test = Expect(conf).dialog(
 ```
 
 ```tut
-val stop = conf.start.unsafePerformIO
+val stop = conf.start.unsafeRunSync
 ```
 
 We can now connect to the server from another terminal window via `telnet`.
 
 ```tut:evaluated:plain
 // run our test and ensure the server stops; the call to stop below is a no-op
-println(test.ensuring(stop).unsafePerformIO)
+println(test.handleErrorWith(_ => stop.as("oops")).unsafeRunSync)
 ```
 
 We can do this as many times as we like, with a the default maximum of 25 simultaneous connections. To terminate the server go back to the REPL and run the `stop` program.
 
 ```tut
-stop.unsafePerformIO
+stop.unsafeRunSync
 ```
 
 In the next chapter we will try a more complex interaction by implementing a [Guessing Game](guessing-game.html).
