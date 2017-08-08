@@ -142,11 +142,11 @@ val txt: Opts[String] =
   Opts.argument[String](metavar = "\"text\"")
 ```
 
-We now have what we need to construct a `Command`. We combine the parsers with `|@|` to yield a `Parser[TodoAction]` which is what we need for the third construtor argument.
+We now have what we need to construct a `Command`. We combine the parsers with `mapN` to yield a `Parser[TodoAction]` which is what we need for the third construtor argument.
 
 ```tut:silent
 val addCommand: Command[SessionIO, TodoState] =
-  Command("add", "Add a new todo.", (ind |@| txt).map(add))
+  Command("add", "Add a new todo.", (ind, txt).mapN(add))
 ```
 
 ### Generalizing our State
@@ -157,7 +157,7 @@ The state passed by the command shell is called `Session[A]` where the domain-sp
 
 ```tut:silent
 val addCommand: Command[SessionIO, Session[TodoState]] = {
-  Command("add", "Add a new todo.", (ind |@| txt).map(add))
+  Command("add", "Add a new todo.", (ind, txt).mapN(add))
     .zoom(Session.L.data[TodoState]) // Session.L is a module of lenses
 }
 ```

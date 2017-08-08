@@ -1,5 +1,4 @@
-addSbtPlugin("org.tpolecat"      %  "tut-plugin"            % "0.4.6")
 addSbtPlugin("com.jsuereth"      %  "sbt-pgp"               % "1.0.0")
 addSbtPlugin("com.github.gseitz" %  "sbt-release"           % "1.0.0")
 addSbtPlugin("org.xerial.sbt"    %  "sbt-sonatype"          % "0.5.0")
-addSbtPlugin("com.fortysevendeg" %  "sbt-microsites"        % "0.3.1")
+addSbtPlugin("com.47deg"         %  "sbt-microsites"        % "0.6.1")

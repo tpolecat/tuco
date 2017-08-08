@@ -44,7 +44,7 @@ object basicterminalio {
       mask.fold(FBT.write(c))(FBT.write)
 
     def writeMS(s: String): FBT.BasicTerminalIOIO[Unit] =
-      mask.fold(FBT.write(s))(c => List.fill(s.length)(c).traverseU(c => FBT.write(c)).void)
+      mask.fold(FBT.write(s))(c => List.fill(s.length)(c).traverse(c => FBT.write(c)).void)
 
     val KILL = 11
     val FORWARD_DELETE = 1305
@@ -119,7 +119,7 @@ object basicterminalio {
               for {
                 _ <- FBT.write(CRLF)
                 n <- FBT.getColumns
-                _ <- columnize(cs, n).traverseU(s => FBT.write(s) *> FBT.write(CRLF))
+                _ <- columnize(cs, n).traverse(s => FBT.write(s) *> FBT.write(CRLF))
                 _ <- FBT.write(prompt)
                 _ <- writeMS(s.head)
                 _ <- FBT.storeCursor

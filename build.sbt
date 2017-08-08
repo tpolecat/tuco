@@ -4,16 +4,9 @@ import ReleaseTransformations._
 lazy val buildSettings = Seq(
   organization := "org.tpolecat",
   licenses ++= Seq(("MIT", url("http://opensource.org/licenses/MIT"))),
-  scalaVersion := "2.12.2",
+  scalaVersion := "2.12.3",
   crossScalaVersions := Seq("2.11.11", scalaVersion.value),
-  scalacOptions in (Compile, doc) ++= {
-    CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, v)) if v <= 11 =>
-        Nil
-      case _ =>
-        Seq("-no-java-comments")
-    }
-  }
+  scalacOptions in (Compile, doc) += "-no-java-comments"
 )
 
 lazy val commonSettings = Seq(
@@ -105,8 +98,9 @@ lazy val core = project
   .settings(publishSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "org.typelevel"  %% "cats"        % "0.9.0",
-      "org.typelevel"  %% "cats-effect" % "0.3"
+      "org.typelevel"  %% "cats-core"   % "1.0.0-MF",
+      "org.typelevel"  %% "cats-free"   % "1.0.0-MF",
+      "org.typelevel"  %% "cats-effect" % "0.4"
     )
   )
 
