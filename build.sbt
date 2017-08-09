@@ -6,7 +6,6 @@ lazy val buildSettings = Seq(
   licenses ++= Seq(("MIT", url("http://opensource.org/licenses/MIT"))),
   scalaVersion := "2.12.3",
   crossScalaVersions := Seq("2.11.11", scalaVersion.value),
-  scalacOptions in (Compile, doc) += "-no-java-comments",
   resolvers += Resolver.jcenterRepo
 )
 
