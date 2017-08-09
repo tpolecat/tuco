@@ -8,10 +8,12 @@ import net.wimpi.telnetd.TelnetD
 import net.wimpi.telnetd.shell.Shell
 
 import scala.collection.JavaConverters._
+import cats.~>
+import cats.data.Kleisli
 import cats.effect._
 
-import tuco.free.{ telnetd => FT }
-import tuco.free.telnetd.TelnetDIO
+import tuco.free.{ telnetd => FT, KleisliInterpreter }
+import tuco.free.telnetd.{ TelnetDOp, TelnetDIO }
 import tuco.free.connection.ConnectionIO
 
 case class Config(
@@ -21,17 +23,19 @@ case class Config(
   maxCon: Int = 25,
   timeToWarning: Int = 3600000,
   timeToTimedout: Int = 60000,
-  housekeepingInterval: Int = 1000
+  housekeepingInterval: Int = 1000,
+  interpreter: TelnetDOp ~> Kleisli[IO, TelnetD, ?] =
+    KleisliInterpreter[IO].TelnetDInterpreter
 ) {
 
   def start: IO[IO[Unit]] =
     for {
       t <- newTelnetD
-      _ <- FT.start.transK[IO].run(t)
-    } yield FT.stop.transK[IO].run(t)
+      _ <- FT.start.foldMap(interpreter).run(t)
+    } yield FT.stop.foldMap(interpreter).run(t)
 
   def run[A](ma: TelnetDIO[A]): IO[A] =
-    newTelnetD.flatMap(ma.transK[IO].run)
+    newTelnetD.flatMap(ma.foldMap(interpreter).run)
 
   private def unsafeToJavaConfig: JavaConfig = {
     val ps = unsafeToProperties
