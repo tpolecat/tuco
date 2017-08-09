@@ -10,6 +10,8 @@ import net.wimpi.telnetd.net.Connection
 import cats._, cats.implicits._
 
 object CommandShell {
+  import FC.AsyncConnectionIO
+  import FBT.AsyncBasicTerminalIOIO
 
   private val Bang = "!(.*)".r
 
@@ -39,7 +41,7 @@ object CommandShell {
             }).pure[FBT.BasicTerminalIOIO]
           case Some(c) =>
             val (p0, p1) = p.splitAt(p.lastIndexOf(" ") + 1)
-            val cs = FBT.lift(conn, c.complete(s, p1))
+            val cs = FBT.embed(conn, c.complete(s, p1))
             cs map {
               case s :: Nil => Left(s.drop(p1.length))
               case ss       => Right(ss)

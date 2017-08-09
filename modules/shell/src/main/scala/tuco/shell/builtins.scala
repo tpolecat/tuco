@@ -10,7 +10,7 @@ import tuco.hi.{ connection => HC }
 import tuco.util._
 
 object Builtins {
-
+  import FC.AsyncConnectionIO
   import Session.L
 
   def exit[A] = Command(

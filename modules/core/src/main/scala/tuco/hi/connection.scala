@@ -13,8 +13,11 @@ import net.wimpi.telnetd.io.BasicTerminalIO.CRLF
 
 object connection {
 
+  import FC.AsyncConnectionIO
+  import FBT.AsyncBasicTerminalIOIO
+
   private def liftBT[A](a: FBT.BasicTerminalIOIO[A]): FC.ConnectionIO[A] =
-    FC.getTerminalIO.flatMap(t => FC.lift(t, a))
+    FC.getTerminalIO.flatMap(t => FC.embed(t, a))
 
   /** Write and then flush. */
   def write(s: String): FC.ConnectionIO[Unit] =

@@ -22,7 +22,8 @@ lazy val commonSettings = Seq(
     // "-Xlint",
     "-Yno-adapted-args",
     "-Ywarn-dead-code",
-    "-Ywarn-value-discard"
+    "-Ywarn-value-discard",
+    "-Ypartial-unification"
   ),
   scalacOptions in (Compile, doc) ++= Seq(
     "-groups",

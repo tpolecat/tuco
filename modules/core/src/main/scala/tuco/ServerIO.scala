@@ -4,6 +4,7 @@ import tuco.free.{ telnetd    => FT }
 import cats.implicits._
 
 object ServerIO extends ServerIOFunctions {
+  import FT.AsyncTelnetDIO
 
   /** Construct a new primitive operation from side-effecting expression `a`. */
   def delay[A](a: => A): ServerIO[A] = FT.delay(a)

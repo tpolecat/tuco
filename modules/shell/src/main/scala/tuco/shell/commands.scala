@@ -12,6 +12,7 @@ import tuco.hi.{ connection   => HC }
  * yielding an effectful state transition.
  */
 case class Commands[A](toList: List[Command[ConnectionIO, Session[A]]]) {
+  import FC.AsyncConnectionIO
 
   // Split a string into a list of tokens, possibly wrapped in double-quotes
   private val R = """"([^"]*)"|(\S+)""".r

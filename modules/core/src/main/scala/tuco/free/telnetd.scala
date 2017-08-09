@@ -1,203 +1,114 @@
 package tuco.free
-//import tuco.util.Capture
 
-import cats.{ Monad, MonadError, ~> }
-import cats.data.Kleisli
-import cats.free.{ Free => F }
-import cats.effect.Sync
+import cats.~>
+import cats.effect.Async
+import cats.free.{ Free => FF } // alias because some algebras have an op called Free
 
 import java.lang.String
 import java.util.Properties
 import net.wimpi.telnetd.TelnetD
-import net.wimpi.telnetd.io.BasicTerminalIO
-import net.wimpi.telnetd.net.Connection
-import net.wimpi.telnetd.net.ConnectionData
-import net.wimpi.telnetd.net.ConnectionEvent
-import net.wimpi.telnetd.net.ConnectionListener
 import net.wimpi.telnetd.net.PortListener
 
-import connection.ConnectionIO
-import connectiondata.ConnectionDataIO
-import connectionevent.ConnectionEventIO
-import connectionlistener.ConnectionListenerIO
-import basicterminalio.BasicTerminalIOIO
-import telnetd.TelnetDIO
+object telnetd { module =>
 
-/**
- * Algebra and free monad for primitive operations over a `net.wimpi.telnetd.TelnetD`.
- * @group Modules
- */
-object telnetd {
-
-  /**
-   * Sum type of primitive operations over a `net.wimpi.telnetd.TelnetD`.
-   * @group Algebra
-   */
+  // Algebra of operations for TelnetD. Each accepts a visitor as an alternatie to pattern-matching.
   sealed trait TelnetDOp[A] {
-    protected def primitive[M[_]: Sync](f: TelnetD => A): Kleisli[M, TelnetD, A] =
-      Kleisli((s: TelnetD) => Sync[M].delay(f(s)))
-    def defaultTransK[M[_]: Sync]: Kleisli[M, TelnetD, A]
+    def visit[F[_]](v: TelnetDOp.Visitor[F]): F[A]
   }
 
-  /**
-   * Module of constructors for `TelnetDOp`. These are rarely useful outside of the implementation;
-   * prefer the smart constructors provided by the `telnetd` module.
-   * @group Algebra
-   */
+  // Free monad over TelnetDOp.
+  type TelnetDIO[A] = FF[TelnetDOp, A]
+
+  // Module of instances and constructors of TelnetDOp.
   object TelnetDOp {
 
-    // This algebra has a default interpreter
-    implicit val TelnetDKleisliTrans: KleisliTrans.Aux[TelnetDOp, TelnetD] =
-      new KleisliTrans[TelnetDOp] {
-        type J = TelnetD
-        def interpK[M[_]: Sync]: TelnetDOp ~> Kleisli[M, TelnetD, ?] =
-          new (TelnetDOp ~> Kleisli[M, TelnetD, ?]) {
-            def apply[A](op: TelnetDOp[A]): Kleisli[M, TelnetD, A] =
-              op.defaultTransK[M]
-          }
+    // Given a TelnetD we can embed a TelnetDIO program in any algebra that understands embedding.
+    implicit val TelnetDOpEmbeddable: Embeddable[TelnetDOp, TelnetD] =
+      new Embeddable[TelnetDOp, TelnetD] {
+        def embed[A](j: TelnetD, fa: FF[TelnetDOp, A]) = Embedded.TelnetD(j, fa)
       }
 
-    // Lifting
-    case class Lift[Op[_], A, J](j: J, action: F[Op, A], mod: KleisliTrans.Aux[Op, J]) extends TelnetDOp[A] {
-      override def defaultTransK[M[_]: Sync] = Kleisli(_ => mod.transK[M].apply(action).run(j))
+    // Interface for a natural tansformation TelnetDOp ~> F encoded via the visitor pattern.
+    // This approach is much more efficient than pattern-matching for large algebras.
+    trait Visitor[F[_]] extends (TelnetDOp ~> F) {
+      final def apply[A](fa: TelnetDOp[A]): F[A] = fa.visit(this)
+
+      // Common
+      def raw[A](f: TelnetD => A): F[A]
+      def embed[A](e: Embedded[A]): F[A]
+      def delay[A](a: () => A): F[A]
+      def handleErrorWith[A](fa: TelnetDIO[A], f: Throwable => TelnetDIO[A]): F[A]
+      def async[A](k: (Either[Throwable, A] => Unit) => Unit): F[A]
+
+      // TelnetD
+      def getPortListener(a: String): F[PortListener]
+      def prepareListener(a: String, b: Properties): F[Unit]
+      def start: F[Unit]
+      def stop: F[Unit]
+
     }
 
-    // Combinators
-    case class Attempt[A](action: TelnetDIO[A]) extends TelnetDOp[Either[Throwable, A]] {
-      override def defaultTransK[M[_]: Sync] =
-        Kleisli((e: TelnetD) => Sync[M].attempt(action.transK[M].apply(e)))
-    }
-    case class Pure[A](a: () => A) extends TelnetDOp[A] {
-      override def defaultTransK[M[_]: Sync] = primitive(_ => a())
-    }
+    // Common operations for all algebras.
     case class Raw[A](f: TelnetD => A) extends TelnetDOp[A] {
-      override def defaultTransK[M[_]: Sync] = primitive(f)
+      def visit[F[_]](v: Visitor[F]) = v.raw(f)
+    }
+    case class Embed[A](e: Embedded[A]) extends TelnetDOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.embed(e)
+    }
+    case class Delay[A](a: () => A) extends TelnetDOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.delay(a)
+    }
+    case class HandleErrorWith[A](fa: TelnetDIO[A], f: Throwable => TelnetDIO[A]) extends TelnetDOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.handleErrorWith(fa, f)
+    }
+    case class Async1[A](k: (Either[Throwable, A] => Unit) => Unit) extends TelnetDOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.async(k)
     }
 
-    // Primitive Operations
+    // TelnetD-specific operations.
     case class  GetPortListener(a: String) extends TelnetDOp[PortListener] {
-      override def defaultTransK[M[_]: Sync] = primitive(_.getPortListener(a))
+      def visit[F[_]](v: Visitor[F]) = v.getPortListener(a)
     }
     case class  PrepareListener(a: String, b: Properties) extends TelnetDOp[Unit] {
-      override def defaultTransK[M[_]: Sync] = primitive(_.prepareListener(a, b))
+      def visit[F[_]](v: Visitor[F]) = v.prepareListener(a, b)
     }
     case object Start extends TelnetDOp[Unit] {
-      override def defaultTransK[M[_]: Sync] = primitive(_.start())
+      def visit[F[_]](v: Visitor[F]) = v.start
     }
     case object Stop extends TelnetDOp[Unit] {
-      override def defaultTransK[M[_]: Sync] = primitive(_.stop())
+      def visit[F[_]](v: Visitor[F]) = v.stop
     }
 
   }
-  import TelnetDOp._ // We use these immediately
+  import TelnetDOp._
 
-  /**
-   * Free monad over a free functor of [[TelnetDOp]]; abstractly, a computation that consumes
-   * a `net.wimpi.telnetd.TelnetD` and produces a value of type `A`.
-   * @group Algebra
-   */
-  type TelnetDIO[A] = F[TelnetDOp, A]
+  // Smart constructors for operations common to all algebras.
+  val unit: TelnetDIO[Unit] = FF.pure[TelnetDOp, Unit](())
+  def raw[A](f: TelnetD => A): TelnetDIO[A] = FF.liftF(Raw(f))
+  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[TelnetDOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
+  def delay[A](a: => A): TelnetDIO[A] = FF.liftF(Delay(() => a))
+  def handleErrorWith[A](fa: TelnetDIO[A], f: Throwable => TelnetDIO[A]): TelnetDIO[A] = FF.liftF[TelnetDOp, A](HandleErrorWith(fa, f))
+  def raiseError[A](err: Throwable): TelnetDIO[A] = delay(throw err)
+  def async[A](k: (Either[Throwable, A] => Unit) => Unit): TelnetDIO[A] = FF.liftF[TelnetDOp, A](Async1(k))
 
-  /**
-   * Catchable instance for [[TelnetDIO]].
-   * @group Typeclass Instances
-   */
-//  implicit val CatchableTelnetDIO: Catchable[TelnetDIO] =
-//    new Catchable[TelnetDIO] {
-//      def attempt[A](f: TelnetDIO[A]): TelnetDIO[Throwable Either A] = telnetd.attempt(f)
-//      def fail[A](err: Throwable): TelnetDIO[A] = telnetd.delay(throw err)
-//    }
+  // Smart constructors for TelnetD-specific operations.
+  def getPortListener(a: String): TelnetDIO[PortListener] = FF.liftF(GetPortListener(a))
+  def prepareListener(a: String, b: Properties): TelnetDIO[Unit] = FF.liftF(PrepareListener(a, b))
+  val start: TelnetDIO[Unit] = FF.liftF(Start)
+  val stop: TelnetDIO[Unit] = FF.liftF(Stop)
 
-  /**
-   * Capture instance for [[TelnetDIO]].
-   * @group Typeclass Instances
-   */
-//  implicit val CaptureTelnetDIO: Capture[TelnetDIO] =
-//    new Capture[TelnetDIO] {
-//      def apply[A](a: => A): TelnetDIO[A] = telnetd.delay(a)
-//    }
-
-  /**
-   * Lift a different type of program that has a default Kleisli interpreter.
-   * @group Constructors (Lifting)
-   */
-  def lift[Op[_], A, J](j: J, action: F[Op, A])(implicit mod: KleisliTrans.Aux[Op, J]): TelnetDIO[A] =
-    F.liftF(Lift(j, action, mod))
-
-  /**
-   * Lift a TelnetDIO[A] into an exception-capturing TelnetDIO[Throwable Either A].
-   * @group Constructors (Lifting)
-   */
-  def attempt[A](a: TelnetDIO[A]): TelnetDIO[Throwable Either A] =
-    F.liftF[TelnetDOp, Throwable Either A](Attempt(a))
-
-  /**
-   * Non-strict unit for capturing effects.
-   * @group Constructors (Lifting)
-   */
-  def delay[A](a: => A): TelnetDIO[A] =
-    F.liftF(Pure(a _))
-
-  /**
-   * Backdoor for arbitrary computations on the underlying TelnetD.
-   * @group Constructors (Lifting)
-   */
-  def raw[A](f: TelnetD => A): TelnetDIO[A] =
-    F.liftF(Raw(f))
-
-  /**
-   * @group Constructors (Primitives)
-   */
-  def getPortListener(a: String): TelnetDIO[PortListener] =
-    F.liftF(GetPortListener(a))
-
-  /**
-   * @group Constructors (Primitives)
-   */
-  def prepareListener(a: String, b: Properties): TelnetDIO[Unit] =
-    F.liftF(PrepareListener(a, b))
-
-  /**
-   * @group Constructors (Primitives)
-   */
-  val start: TelnetDIO[Unit] =
-    F.liftF(Start)
-
-  /**
-   * @group Constructors (Primitives)
-   */
-  val stop: TelnetDIO[Unit] =
-    F.liftF(Stop)
-
- /**
-  * Natural transformation from `TelnetDOp` to `Kleisli` for the given `M`, consuming a `net.wimpi.telnetd.TelnetD`.
-  * @group Algebra
-  */
-  def interpK[M[_]: Sync]: TelnetDOp ~> Kleisli[M, TelnetD, ?] =
-   TelnetDOp.TelnetDKleisliTrans.interpK
-
- /**
-  * Natural transformation from `TelnetDIO` to `Kleisli` for the given `M`, consuming a `net.wimpi.telnetd.TelnetD`.
-  * @group Algebra
-  */
-  def transK[M[_]: Sync]: TelnetDIO ~> Kleisli[M, TelnetD, ?] =
-   TelnetDOp.TelnetDKleisliTrans.transK
-
- /**
-  * Natural transformation from `TelnetDIO` to `M`, given a `net.wimpi.telnetd.TelnetD`.
-  * @group Algebra
-  */
- def trans[M[_]: Sync](c: TelnetD): TelnetDIO ~> M =
-   TelnetDOp.TelnetDKleisliTrans.trans[M](c)
-
-  /**
-   * Syntax for `TelnetDIO`.
-   * @group Algebra
-   */
-  implicit class TelnetDIOOps[A](ma: TelnetDIO[A]) {
-    def transK[M[_]: Sync]: Kleisli[M, TelnetD, A] =
-      TelnetDOp.TelnetDKleisliTrans.transK[M].apply(ma)
-  }
+  // TelnetDIO is an Async
+  implicit val AsyncTelnetDIO: Async[TelnetDIO] =
+    new Async[TelnetDIO] {
+      val M = FF.catsFreeMonadForFree[TelnetDOp]
+      def pure[A](x: A): TelnetDIO[A] = M.pure(x)
+      def handleErrorWith[A](fa: TelnetDIO[A])(f: Throwable => TelnetDIO[A]): TelnetDIO[A] = module.handleErrorWith(fa, f)
+      def raiseError[A](e: Throwable): TelnetDIO[A] = module.raiseError(e)
+      def async[A](k: (Either[Throwable,A] => Unit) => Unit): TelnetDIO[A] = module.async(k)
+      def flatMap[A, B](fa: TelnetDIO[A])(f: A => TelnetDIO[B]): TelnetDIO[B] = M.flatMap(fa)(f)
+      def tailRecM[A, B](a: A)(f: A => TelnetDIO[Either[A, B]]): TelnetDIO[B] = M.tailRecM(a)(f)
+      def suspend[A](thunk: => TelnetDIO[A]): TelnetDIO[A] = M.flatten(module.delay(thunk))
+    }
 
 }
 

@@ -1,246 +1,141 @@
 package tuco.free
-//import tuco.util.Capture
 
-import cats.{ Monad, MonadError, ~> }
-import cats.data.Kleisli
-import cats.free.{ Free => F }
-import cats.effect.Sync
+import cats.~>
+import cats.effect.Async
+import cats.free.{ Free => FF } // alias because some algebras have an op called Free
 
 import java.lang.String
-import net.wimpi.telnetd.TelnetD
 import net.wimpi.telnetd.io.BasicTerminalIO
 import net.wimpi.telnetd.net.Connection
 import net.wimpi.telnetd.net.ConnectionData
 import net.wimpi.telnetd.net.ConnectionEvent
 import net.wimpi.telnetd.net.ConnectionListener
 
-import connection.ConnectionIO
-import connectiondata.ConnectionDataIO
-import connectionevent.ConnectionEventIO
-import connectionlistener.ConnectionListenerIO
-import basicterminalio.BasicTerminalIOIO
-import telnetd.TelnetDIO
+object connection { module =>
 
-/**
- * Algebra and free monad for primitive operations over a `net.wimpi.telnetd.net.Connection`.
- * @group Modules
- */
-object connection {
-
-  /**
-   * Sum type of primitive operations over a `net.wimpi.telnetd.net.Connection`.
-   * @group Algebra
-   */
+  // Algebra of operations for Connection. Each accepts a visitor as an alternatie to pattern-matching.
   sealed trait ConnectionOp[A] {
-    protected def primitive[M[_]: Sync](f: Connection => A): Kleisli[M, Connection, A] =
-      Kleisli((s: Connection) => Sync[M].delay(f(s)))
-    def defaultTransK[M[_]: Sync]: Kleisli[M, Connection, A]
+    def visit[F[_]](v: ConnectionOp.Visitor[F]): F[A]
   }
 
-  /**
-   * Module of constructors for `ConnectionOp`. These are rarely useful outside of the implementation;
-   * prefer the smart constructors provided by the `connection` module.
-   * @group Algebra
-   */
+  // Free monad over ConnectionOp.
+  type ConnectionIO[A] = FF[ConnectionOp, A]
+
+  // Module of instances and constructors of ConnectionOp.
   object ConnectionOp {
 
-    // This algebra has a default interpreter
-    implicit val ConnectionKleisliTrans: KleisliTrans.Aux[ConnectionOp, Connection] =
-      new KleisliTrans[ConnectionOp] {
-        type J = Connection
-        def interpK[M[_]: Sync]: ConnectionOp ~> Kleisli[M, Connection, ?] =
-          new (ConnectionOp ~> Kleisli[M, Connection, ?]) {
-            def apply[A](op: ConnectionOp[A]): Kleisli[M, Connection, A] =
-              op.defaultTransK[M]
-          }
+    // Given a Connection we can embed a ConnectionIO program in any algebra that understands embedding.
+    implicit val ConnectionOpEmbeddable: Embeddable[ConnectionOp, Connection] =
+      new Embeddable[ConnectionOp, Connection] {
+        def embed[A](j: Connection, fa: FF[ConnectionOp, A]) = Embedded.Connection(j, fa)
       }
 
-    // Lifting
-    case class Lift[Op[_], A, J](j: J, action: F[Op, A], mod: KleisliTrans.Aux[Op, J]) extends ConnectionOp[A] {
-      override def defaultTransK[M[_]: Sync] = Kleisli(_ => mod.transK[M].apply(action).run(j))
+    // Interface for a natural tansformation ConnectionOp ~> F encoded via the visitor pattern.
+    // This approach is much more efficient than pattern-matching for large algebras.
+    trait Visitor[F[_]] extends (ConnectionOp ~> F) {
+      final def apply[A](fa: ConnectionOp[A]): F[A] = fa.visit(this)
+
+      // Common
+      def raw[A](f: Connection => A): F[A]
+      def embed[A](e: Embedded[A]): F[A]
+      def delay[A](a: () => A): F[A]
+      def handleErrorWith[A](fa: ConnectionIO[A], f: Throwable => ConnectionIO[A]): F[A]
+      def async[A](k: (Either[Throwable, A] => Unit) => Unit): F[A]
+
+      // Connection
+      def addConnectionListener(a: ConnectionListener): F[Unit]
+      def close: F[Unit]
+      def getConnectionData: F[ConnectionData]
+      def getTerminalIO: F[BasicTerminalIO]
+      def isActive: F[Boolean]
+      def processConnectionEvent(a: ConnectionEvent): F[Unit]
+      def removeConnectionListener(a: ConnectionListener): F[Unit]
+      def run: F[Unit]
+      def setNextShell(a: String): F[Boolean]
+
     }
 
-    // Combinators
-    case class Attempt[A](action: ConnectionIO[A]) extends ConnectionOp[Either[Throwable, A]] {
-      override def defaultTransK[M[_]: Sync] =
-        Kleisli((e: Connection) => Sync[M].attempt(action.transK[M].apply(e)))
-    }
-    case class Pure[A](a: () => A) extends ConnectionOp[A] {
-      override def defaultTransK[M[_]: Sync] = primitive(_ => a())
-    }
+    // Common operations for all algebras.
     case class Raw[A](f: Connection => A) extends ConnectionOp[A] {
-      override def defaultTransK[M[_]: Sync] = primitive(f)
+      def visit[F[_]](v: Visitor[F]) = v.raw(f)
+    }
+    case class Embed[A](e: Embedded[A]) extends ConnectionOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.embed(e)
+    }
+    case class Delay[A](a: () => A) extends ConnectionOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.delay(a)
+    }
+    case class HandleErrorWith[A](fa: ConnectionIO[A], f: Throwable => ConnectionIO[A]) extends ConnectionOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.handleErrorWith(fa, f)
+    }
+    case class Async1[A](k: (Either[Throwable, A] => Unit) => Unit) extends ConnectionOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.async(k)
     }
 
-    // Primitive Operations
+    // Connection-specific operations.
     case class  AddConnectionListener(a: ConnectionListener) extends ConnectionOp[Unit] {
-      override def defaultTransK[M[_]: Sync] = primitive(_.addConnectionListener(a))
+      def visit[F[_]](v: Visitor[F]) = v.addConnectionListener(a)
     }
     case object Close extends ConnectionOp[Unit] {
-      override def defaultTransK[M[_]: Sync] = primitive(_.close())
+      def visit[F[_]](v: Visitor[F]) = v.close
     }
     case object GetConnectionData extends ConnectionOp[ConnectionData] {
-      override def defaultTransK[M[_]: Sync] = primitive(_.getConnectionData())
+      def visit[F[_]](v: Visitor[F]) = v.getConnectionData
     }
     case object GetTerminalIO extends ConnectionOp[BasicTerminalIO] {
-      override def defaultTransK[M[_]: Sync] = primitive(_.getTerminalIO())
+      def visit[F[_]](v: Visitor[F]) = v.getTerminalIO
     }
     case object IsActive extends ConnectionOp[Boolean] {
-      override def defaultTransK[M[_]: Sync] = primitive(_.isActive())
+      def visit[F[_]](v: Visitor[F]) = v.isActive
     }
     case class  ProcessConnectionEvent(a: ConnectionEvent) extends ConnectionOp[Unit] {
-      override def defaultTransK[M[_]: Sync] = primitive(_.processConnectionEvent(a))
+      def visit[F[_]](v: Visitor[F]) = v.processConnectionEvent(a)
     }
     case class  RemoveConnectionListener(a: ConnectionListener) extends ConnectionOp[Unit] {
-      override def defaultTransK[M[_]: Sync] = primitive(_.removeConnectionListener(a))
+      def visit[F[_]](v: Visitor[F]) = v.removeConnectionListener(a)
     }
     case object Run extends ConnectionOp[Unit] {
-      override def defaultTransK[M[_]: Sync] = primitive(_.run())
+      def visit[F[_]](v: Visitor[F]) = v.run
     }
     case class  SetNextShell(a: String) extends ConnectionOp[Boolean] {
-      override def defaultTransK[M[_]: Sync] = primitive(_.setNextShell(a))
+      def visit[F[_]](v: Visitor[F]) = v.setNextShell(a)
     }
 
   }
-  import ConnectionOp._ // We use these immediately
+  import ConnectionOp._
 
-  /**
-   * Free monad over a free functor of [[ConnectionOp]]; abstractly, a computation that consumes
-   * a `net.wimpi.telnetd.net.Connection` and produces a value of type `A`.
-   * @group Algebra
-   */
-  type ConnectionIO[A] = F[ConnectionOp, A]
+  // Smart constructors for operations common to all algebras.
+  val unit: ConnectionIO[Unit] = FF.pure[ConnectionOp, Unit](())
+  def raw[A](f: Connection => A): ConnectionIO[A] = FF.liftF(Raw(f))
+  def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[ConnectionOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
+  def delay[A](a: => A): ConnectionIO[A] = FF.liftF(Delay(() => a))
+  def handleErrorWith[A](fa: ConnectionIO[A], f: Throwable => ConnectionIO[A]): ConnectionIO[A] = FF.liftF[ConnectionOp, A](HandleErrorWith(fa, f))
+  def raiseError[A](err: Throwable): ConnectionIO[A] = delay(throw err)
+  def async[A](k: (Either[Throwable, A] => Unit) => Unit): ConnectionIO[A] = FF.liftF[ConnectionOp, A](Async1(k))
 
-  /**
-   * Catchable instance for [[ConnectionIO]].
-   * @group Typeclass Instances
-   */
-//  implicit val CatchableConnectionIO: Catchable[ConnectionIO] =
-//    new Catchable[ConnectionIO] {
-//      def attempt[A](f: ConnectionIO[A]): ConnectionIO[Throwable Either A] = connection.attempt(f)
-//      def fail[A](err: Throwable): ConnectionIO[A] = connection.delay(throw err)
-//    }
+  // Smart constructors for Connection-specific operations.
+  def addConnectionListener(a: ConnectionListener): ConnectionIO[Unit] = FF.liftF(AddConnectionListener(a))
+  val close: ConnectionIO[Unit] = FF.liftF(Close)
+  val getConnectionData: ConnectionIO[ConnectionData] = FF.liftF(GetConnectionData)
+  val getTerminalIO: ConnectionIO[BasicTerminalIO] = FF.liftF(GetTerminalIO)
+  val isActive: ConnectionIO[Boolean] = FF.liftF(IsActive)
+  def processConnectionEvent(a: ConnectionEvent): ConnectionIO[Unit] = FF.liftF(ProcessConnectionEvent(a))
+  def removeConnectionListener(a: ConnectionListener): ConnectionIO[Unit] = FF.liftF(RemoveConnectionListener(a))
+  val run: ConnectionIO[Unit] = FF.liftF(Run)
+  def setNextShell(a: String): ConnectionIO[Boolean] = FF.liftF(SetNextShell(a))
 
-  /**
-   * Capture instance for [[ConnectionIO]].
-   * @group Typeclass Instances
-   */
-//  implicit val CaptureConnectionIO: Capture[ConnectionIO] =
-//    new Capture[ConnectionIO] {
-//      def apply[A](a: => A): ConnectionIO[A] = connection.delay(a)
-//    }
-
-  /**
-   * Lift a different type of program that has a default Kleisli interpreter.
-   * @group Constructors (Lifting)
-   */
-  def lift[Op[_], A, J](j: J, action: F[Op, A])(implicit mod: KleisliTrans.Aux[Op, J]): ConnectionIO[A] =
-    F.liftF(Lift(j, action, mod))
-
-  /**
-   * Lift a ConnectionIO[A] into an exception-capturing ConnectionIO[Throwable Either A].
-   * @group Constructors (Lifting)
-   */
-  def attempt[A](a: ConnectionIO[A]): ConnectionIO[Throwable Either A] =
-    F.liftF[ConnectionOp, Throwable Either A](Attempt(a))
-
-  /**
-   * Non-strict unit for capturing effects.
-   * @group Constructors (Lifting)
-   */
-  def delay[A](a: => A): ConnectionIO[A] =
-    F.liftF(Pure(a _))
-
-  /**
-   * Backdoor for arbitrary computations on the underlying Connection.
-   * @group Constructors (Lifting)
-   */
-  def raw[A](f: Connection => A): ConnectionIO[A] =
-    F.liftF(Raw(f))
-
-  /**
-   * @group Constructors (Primitives)
-   */
-  def addConnectionListener(a: ConnectionListener): ConnectionIO[Unit] =
-    F.liftF(AddConnectionListener(a))
-
-  /**
-   * @group Constructors (Primitives)
-   */
-  val close: ConnectionIO[Unit] =
-    F.liftF(Close)
-
-  /**
-   * @group Constructors (Primitives)
-   */
-  val getConnectionData: ConnectionIO[ConnectionData] =
-    F.liftF(GetConnectionData)
-
-  /**
-   * @group Constructors (Primitives)
-   */
-  val getTerminalIO: ConnectionIO[BasicTerminalIO] =
-    F.liftF(GetTerminalIO)
-
-  /**
-   * @group Constructors (Primitives)
-   */
-  val isActive: ConnectionIO[Boolean] =
-    F.liftF(IsActive)
-
-  /**
-   * @group Constructors (Primitives)
-   */
-  def processConnectionEvent(a: ConnectionEvent): ConnectionIO[Unit] =
-    F.liftF(ProcessConnectionEvent(a))
-
-  /**
-   * @group Constructors (Primitives)
-   */
-  def removeConnectionListener(a: ConnectionListener): ConnectionIO[Unit] =
-    F.liftF(RemoveConnectionListener(a))
-
-  /**
-   * @group Constructors (Primitives)
-   */
-  val run: ConnectionIO[Unit] =
-    F.liftF(Run)
-
-  /**
-   * @group Constructors (Primitives)
-   */
-  def setNextShell(a: String): ConnectionIO[Boolean] =
-    F.liftF(SetNextShell(a))
-
- /**
-  * Natural transformation from `ConnectionOp` to `Kleisli` for the given `M`, consuming a `net.wimpi.telnetd.net.Connection`.
-  * @group Algebra
-  */
-  def interpK[M[_]: Sync]: ConnectionOp ~> Kleisli[M, Connection, ?] =
-   ConnectionOp.ConnectionKleisliTrans.interpK
-
- /**
-  * Natural transformation from `ConnectionIO` to `Kleisli` for the given `M`, consuming a `net.wimpi.telnetd.net.Connection`.
-  * @group Algebra
-  */
-  def transK[M[_]: Sync]: ConnectionIO ~> Kleisli[M, Connection, ?] =
-   ConnectionOp.ConnectionKleisliTrans.transK
-
- /**
-  * Natural transformation from `ConnectionIO` to `M`, given a `net.wimpi.telnetd.net.Connection`.
-  * @group Algebra
-  */
- def trans[M[_]: Sync](c: Connection): ConnectionIO ~> M =
-   ConnectionOp.ConnectionKleisliTrans.trans[M](c)
-
-  /**
-   * Syntax for `ConnectionIO`.
-   * @group Algebra
-   */
-  implicit class ConnectionIOOps[A](ma: ConnectionIO[A]) {
-    def transK[M[_]: Sync]: Kleisli[M, Connection, A] =
-      ConnectionOp.ConnectionKleisliTrans.transK[M].apply(ma)
-  }
+  // ConnectionIO is an Async
+  implicit val AsyncConnectionIO: Async[ConnectionIO] =
+    new Async[ConnectionIO] {
+      val M = FF.catsFreeMonadForFree[ConnectionOp]
+      def pure[A](x: A): ConnectionIO[A] = M.pure(x)
+      def handleErrorWith[A](fa: ConnectionIO[A])(f: Throwable => ConnectionIO[A]): ConnectionIO[A] = module.handleErrorWith(fa, f)
+      def raiseError[A](e: Throwable): ConnectionIO[A] = module.raiseError(e)
+      def async[A](k: (Either[Throwable,A] => Unit) => Unit): ConnectionIO[A] = module.async(k)
+      def flatMap[A, B](fa: ConnectionIO[A])(f: A => ConnectionIO[B]): ConnectionIO[B] = M.flatMap(fa)(f)
+      def tailRecM[A, B](a: A)(f: A => ConnectionIO[Either[A, B]]): ConnectionIO[B] = M.tailRecM(a)(f)
+      def suspend[A](thunk: => ConnectionIO[A]): ConnectionIO[A] = M.flatten(module.delay(thunk))
+    }
 
 }
 

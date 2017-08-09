@@ -11,6 +11,9 @@ import cats.implicits._
 
 object basicterminalio {
 
+  import FC.AsyncConnectionIO
+  import FBT.AsyncBasicTerminalIOIO
+
   type Completer = String => FBT.BasicTerminalIOIO[Either[String, List[String]]]
   object Completer {
     val empty: Completer = _ => (Right(List.empty[String]) : Either[String, List[String]]).pure[FBT.BasicTerminalIOIO]

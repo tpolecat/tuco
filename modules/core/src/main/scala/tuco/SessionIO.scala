@@ -9,15 +9,16 @@ import cats.implicits._
 
 /** Module of SesionIO constructors. */
 object SessionIO extends SessionIOFunctions {
+  import FC.AsyncConnectionIO
 
-    /** Construct a new primitive operation from side-effecting expression `a`. */
-    def delay[A](a: => A): SessionIO[A] = FC.delay(a)
+  /** Construct a new primitive operation from side-effecting expression `a`. */
+  def delay[A](a: => A): SessionIO[A] = FC.delay(a)
 
-    /** Construct a new constant-value program. */
-    def pure[A](a: A): SessionIO[A] = a.pure[SessionIO]
+  /** Construct a new constant-value program. */
+  def pure[A](a: A): SessionIO[A] = a.pure[SessionIO]
 
-    /** The unit program, . */
-    val unit: SessionIO[Unit] = pure(())
+  /** The unit program, . */
+  val unit: SessionIO[Unit] = pure(())
 
 }
 
