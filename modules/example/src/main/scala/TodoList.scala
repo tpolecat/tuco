@@ -37,7 +37,7 @@ object TodoList {
     for {
       cs <- getColumns
       ss  = ts.zipWithIndex.map { case (Todo(s), n) => f"${n + 1}%3d. $s".take(cs) }
-      _  <- ss.traverseU(writeLn)
+      _  <- ss.traverse(writeLn)
     } yield ts
 
   // A command that makes the `add` action above available to the user.
@@ -58,7 +58,7 @@ object TodoList {
       Opts.argument[String](metavar = "\"text\"")
 
     // We can now construct the final command.
-    Command("add", "Add a new todo.", (ind |@| txt).map(add))
+    Command("add", "Add a new todo.", (ind, txt).mapN(add))
       .zoom(Session.L.data[List[Todo]])
 
   }

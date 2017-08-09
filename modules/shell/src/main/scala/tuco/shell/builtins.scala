@@ -21,7 +21,7 @@ object Builtins {
   def history[A] = Command(
     "history", "Show command history.",
     Opts { (h: Session.History) =>
-      h.toList.reverse.zipWithIndex.traverseU { case (s, n) =>
+      h.toList.reverse.zipWithIndex.traverse { case (s, n) =>
         HC.writeLn(s"$n: $s")
       } .as(h) : ConnectionIO[Session.History] // ascription needed :-\
     }
@@ -33,7 +33,7 @@ object Builtins {
       val infos = cs.toList.sortBy(_.name)
       val w = infos.map(_.name.length).max + 3 // TODO: use kiama/PP
       HC.writeLn("Available commands: <command> -h for more info.") *>
-      infos.traverseU(i => HC.writeLn("  " + i.name.padTo(w, ' ') + i.desc)).as(cs)
+      infos.traverse(i => HC.writeLn("  " + i.name.padTo(w, ' ') + i.desc)).as(cs)
     }
   ).zoom(L.commands[A])
 
