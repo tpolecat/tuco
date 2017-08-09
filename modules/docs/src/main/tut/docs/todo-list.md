@@ -87,7 +87,7 @@ val list: TodoAction = ts =>
   for {
     cs <- getColumns
     ss  = ts.zipWithIndex.map { case (Todo(s), n) => f"${n + 1}%3d. $s".take(cs) }
-    _  <- ss.traverseU(writeLn)
+    _  <- ss.traverse(writeLn)
   } yield ts
 ```
 

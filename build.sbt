@@ -6,7 +6,8 @@ lazy val buildSettings = Seq(
   licenses ++= Seq(("MIT", url("http://opensource.org/licenses/MIT"))),
   scalaVersion := "2.12.3",
   crossScalaVersions := Seq("2.11.11", scalaVersion.value),
-  scalacOptions in (Compile, doc) += "-no-java-comments"
+  scalacOptions in (Compile, doc) += "-no-java-comments",
+  resolvers += Resolver.jcenterRepo
 )
 
 lazy val commonSettings = Seq(
@@ -112,7 +113,7 @@ lazy val shell = project
   .settings(publishSettings)
   .settings(
     resolvers += Resolver.bintrayRepo("bkirwi", "maven"),
-    libraryDependencies += "com.monovore" %% "decline" % "0.2.2"
+    libraryDependencies += "com.monovore" %% "decline" % "0.4.0-M1"
   )
 
 lazy val wimpi = project
