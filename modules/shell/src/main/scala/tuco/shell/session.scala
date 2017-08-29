@@ -2,8 +2,8 @@ package tuco.shell
 
 import cats.Monoid
 import scala.util.Try
-import tuco.util.{ Lens, Zipper }
-import tuco.util.Lens.@>
+import tuco.util.Zipper
+import monocle.macros.Lenses
 
 /**
  * State for a `CommandShell` session with user-defined payload of type `A`.
@@ -13,7 +13,7 @@ import tuco.util.Lens.@>
  * @param done a command can set this to `true` to indicated that the session should end.
  * @param data an arbitrary payload, for application-specific functionality.
  */
-final case class Session[A](
+@Lenses final case class Session[A](
   commands: Commands[A],
   history:  Session.History,
   prompt:   String,
@@ -38,15 +38,6 @@ object Session {
   /** Equivalent to `initial` but uses the `mzero[A]` for the initial payload value. */
   def empty[A: Monoid]: Session[A] =
     initial(Monoid[A].empty)
-
-  /** Module of lenses. */
-  object L {
-    def commands[A]: Session[A] @> Commands[A] = Lens.lensu((a, b) => a.copy(commands = b), _.commands)
-    def history[A]:  Session[A] @> History     = Lens.lensu((a, b) => a.copy(history = b), _.history)
-    def prompt[A]:   Session[A] @> String      = Lens.lensu((a, b) => a.copy(prompt = b), _.prompt)
-    def data[A]:     Session[A] @> A           = Lens.lensu((a, b) => a.copy(data = b), _.data)
-    def done[A]:     Session[A] @> Boolean     = Lens.lensu((a, b) => a.copy(done = b), _.done)
-  }
 
   case class History(toList: List[String]) {
     def ::(s: String) = toList.headOption match {

@@ -11,12 +11,11 @@ import tuco.util._
 
 object Builtins {
   import FC.AsyncConnectionIO
-  import Session.L
 
   def exit[A] = Command(
     "exit", "Exit the shell.",
     Opts((a: Boolean) => true.pure[ConnectionIO])
-  ).zoom(L.done[A])
+  ).zoom(Session.done[A])
 
   def history[A] = Command(
     "history", "Show command history.",
@@ -25,7 +24,7 @@ object Builtins {
         HC.writeLn(s"$n: $s")
       } .as(h) : ConnectionIO[Session.History] // ascription needed :-\
     }
-  ).zoom(L.history[A])
+  ).zoom(Session.history[A])
 
   def help[A] = Command(
     "help", "Show command help.",
@@ -35,7 +34,7 @@ object Builtins {
       HC.writeLn("Available commands: <command> -h for more info.") *>
       infos.traverse(i => HC.writeLn("  " + i.name.padTo(w, ' ') + i.desc)).as(cs)
     }
-  ).zoom(L.commands[A])
+  ).zoom(Session.commands[A])
 
   def apply[A] = Commands(exit[A], history[A], help[A])
 

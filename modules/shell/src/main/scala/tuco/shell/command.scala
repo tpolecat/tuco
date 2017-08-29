@@ -4,7 +4,7 @@ import cats.{ Applicative, Functor }
 import cats.functor.Invariant
 import cats.implicits._
 import com.monovore.decline._
-import tuco.util.Lens.@>
+import monocle.Lens
 
 /**
  * Metadata and implementation of an effectful command.
@@ -20,9 +20,9 @@ case class Command[F[_], A](
 ) { outer =>
 
   /** Given a lens from `B` to `A` we can zoom out and produce a `Command[F, B]`. */
-  def zoom[B](lens: B @> A)(implicit ev: Functor[F]): Command[F, B] =
+  def zoom[B](lens: Lens[B, A])(implicit ev: Functor[F]): Command[F, B] =
     copy(
-      parser   = parser.map(f => lens =>>= f),
+      parser   = parser.map(f => lens.modifyF(f)),
       complete = (b, s) => outer.complete(lens.get(b), s)
     )
 

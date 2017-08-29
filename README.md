@@ -27,7 +27,7 @@ libraryDependencies += "org.tpolecat" %% "tuco"       % "0.2.0" // either this o
 libraryDependencies += "org.tpolecat" %% "tuco-shell" % "0.2.0" // or this one, which includes the shell API
 ```
 
-**Tuco** version **0.3.0-M1** is available for cats 1.0.0-MF, cats-effect 0.4, and decline 0.4.0-M1. This version will track cats milestones until 1.0 becomes final.
+**Tuco** version **0.3.0-M2** is available for cats 1.0.0-MF, cats-effect 0.4, decline 0.4.0-M1, and monocle 1.5.0-cats-M1. This version will track cats milestones until 1.0 becomes final.
 
 Obviously this is *very early software.* Please experiment and contribute code or suggestions, but don't rely on it for anything important yet unless you are prepared to rewrite things.
 
