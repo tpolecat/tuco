@@ -31,7 +31,8 @@ lazy val commonSettings = Seq(
     "-doc-source-url", "https://github.com/tpolecat/tuco/tree/v" + version.value + "€{FILE_PATH}.scala",
     "-skip-packages", "scalaz"
   ),
-  addCompilerPlugin("org.spire-math" % "kind-projector" % "0.9.3" cross CrossVersion.binary)
+  addCompilerPlugin("org.spire-math" % "kind-projector" % "0.9.3" cross CrossVersion.binary),
+  addCompilerPlugin("org.scalamacros" %% "paradise"     % "2.1.0" cross CrossVersion.patch)
 )
 
 lazy val publishSettings =  Seq(
@@ -99,9 +100,12 @@ lazy val core = project
   .settings(publishSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "org.typelevel"  %% "cats-core"   % "1.0.0-MF",
-      "org.typelevel"  %% "cats-free"   % "1.0.0-MF",
-      "org.typelevel"  %% "cats-effect" % "0.4"
+      "org.typelevel"              %% "cats-core"     % "1.0.0-MF",
+      "org.typelevel"              %% "cats-free"     % "1.0.0-MF",
+      "org.typelevel"              %% "cats-effect"   % "0.4",
+      "com.github.julien-truffaut" %% "monocle-core"  % "1.5.0-cats-M1",
+      "com.github.julien-truffaut" %% "monocle-macro" % "1.5.0-cats-M1",
+      "com.github.julien-truffaut" %% "monocle-law"   % "1.5.0-cats-M1"  % "test"
     )
   )
 

@@ -158,7 +158,7 @@ The state passed by the command shell is called `Session[A]` where the domain-sp
 ```tut:silent
 val addCommand: Command[SessionIO, Session[TodoState]] = {
   Command("add", "Add a new todo.", (ind, txt).mapN(add))
-    .zoom(Session.L.data[TodoState]) // Session.L is a module of lenses
+    .zoom(Session.data[TodoState]) // Session.data is a lens
 }
 ```
 
@@ -174,7 +174,7 @@ val deleteCommand = {
     Opts.argument[Int](
       metavar = "index"
     ).map(n => delete(n - 1)))
-    .zoom(Session.L.data[List[Todo]])
+    .zoom(Session.data[List[Todo]])
 }
 ```
 
@@ -183,12 +183,12 @@ The list and clear commands takes no arguments at all, so the parsers are simply
 ```tut:silent
 val listCommand = {
   Command("list", "List the todo items.", list.pure[Opts])
-    .zoom(Session.L.data[List[Todo]])
+    .zoom(Session.data[List[Todo]])
 }
 
 val clearCommand = {
   Command("clear", "Clears the todo list.", clear.pure[Opts])
-    .zoom(Session.L.data[List[Todo]])
+    .zoom(Session.data[List[Todo]])
 }
 ```
 

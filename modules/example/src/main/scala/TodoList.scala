@@ -59,7 +59,7 @@ object TodoList {
 
     // We can now construct the final command.
     Command("add", "Add a new todo.", (ind, txt).mapN(add))
-      .zoom(Session.L.data[List[Todo]])
+      .zoom(Session.data[List[Todo]])
 
   }
 
@@ -70,16 +70,16 @@ object TodoList {
         // help("Todo item to delete."),
         metavar = "index"
       ).map(n => delete(n - 1)))
-      .zoom(Session.L.data[List[Todo]])
+      .zoom(Session.data[List[Todo]])
 
   // The list and clear commands takes no arguments at all.
   val listCommand: TodoCommand =
     Command("list", "List the todo items.", list.pure[Opts])
-      .zoom(Session.L.data[List[Todo]])
+      .zoom(Session.data[List[Todo]])
 
   val clearCommand: TodoCommand =
     Command("clear", "Clears the todo list.", clear.pure[Opts])
-      .zoom(Session.L.data[List[Todo]])
+      .zoom(Session.data[List[Todo]])
 
   val TodoCommands = Commands(addCommand, deleteCommand, listCommand, clearCommand)
 
