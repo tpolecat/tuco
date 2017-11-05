@@ -50,10 +50,6 @@ lazy val publishSettings =  Seq(
   homepage := Some(url("https://github.com/tpolecat/tuco")),
   pomIncludeRepository := Function.const(false),
   pomExtra := (
-    <scm>
-      <url>git@github.com:tpolecat/tuco.git</url>
-      <connection>scm:git:git@github.com:tpolecat/tuco.git</connection>
-    </scm>
     <developers>
       <developer>
         <id>tpolecat</id>
