@@ -32,11 +32,7 @@ lazy val commonSettings = Seq(
     "-skip-packages", "scalaz"
   ),
   addCompilerPlugin("org.spire-math"  %  "kind-projector" % "0.9.3" cross CrossVersion.binary),
-  addCompilerPlugin("org.scalamacros" %% "paradise"       % "2.1.0" cross CrossVersion.patch)
-)
-
-lazy val publishSettings =  Seq(
-  publishMavenStyle := true,
+  addCompilerPlugin("org.scalamacros" %% "paradise"       % "2.1.0" cross CrossVersion.patch),
   publishTo := {
     val nexus = "https://oss.sonatype.org/"
     if (isSnapshot.value)
@@ -44,14 +40,16 @@ lazy val publishSettings =  Seq(
     else
       Some("releases"  at nexus + "service/local/staging/deploy/maven2")
   },
+  releaseProcess := Nil
+)
+
+lazy val publishSettings =  Seq(
+  useGpg := false,
+  publishMavenStyle := true,
   publishArtifact in Test := false,
   homepage := Some(url("https://github.com/tpolecat/tuco")),
   pomIncludeRepository := Function.const(false),
   pomExtra := (
-    <scm>
-      <url>git@github.com:tpolecat/tuco.git</url>
-      <connection>scm:git:git@github.com:tpolecat/tuco.git</connection>
-    </scm>
     <developers>
       <developer>
         <id>tpolecat</id>
@@ -60,27 +58,11 @@ lazy val publishSettings =  Seq(
       </developer>
     </developers>
   ),
-  releaseCrossBuild := true,
-  releasePublishArtifactsAction := PgpKeys.publishSigned.value,
-  releaseProcess := Seq[ReleaseStep](
-    checkSnapshotDependencies,
-    inquireVersions,
-    runClean,
-    ReleaseStep(action = Command.process("package", _)),
-    setReleaseVersion,
-    commitReleaseVersion,
-    tagRelease,
-    ReleaseStep(action = Command.process("publishSigned", _)),
-    setNextVersion,
-    commitNextVersion,
-    ReleaseStep(action = Command.process("sonatypeReleaseAll", _)),
-    pushChanges)
+  releasePublishArtifactsAction := PgpKeys.publishSigned.value
 )
 
 lazy val noPublishSettings = Seq(
-  publish := (),
-  publishLocal := (),
-  publishArtifact := false
+  skip in publish := true
 )
 
 lazy val tucoSettings = buildSettings ++ commonSettings
@@ -91,6 +73,25 @@ lazy val tuco = project
   .settings(noPublishSettings)
   .dependsOn(wimpi, core, shell, example, docs)
   .aggregate(wimpi, core, shell, example, docs)
+  .settings(
+    releaseCrossBuild := true,
+    releaseProcess := Seq[ReleaseStep](
+      checkSnapshotDependencies,
+      inquireVersions,
+      runClean,
+      runTest,
+      releaseStepCommand("docs/tut"), // annoying that we have to do this twice
+      setReleaseVersion,
+      commitReleaseVersion,
+      tagRelease,
+      publishArtifacts,
+      releaseStepCommand("sonatypeReleaseAll"),
+      releaseStepCommand("docs/publishMicrosite"),
+      setNextVersion,
+      commitNextVersion,
+      pushChanges
+    )
+  )
 
 lazy val core = project
   .in(file("modules/core"))
