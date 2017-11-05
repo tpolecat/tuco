@@ -1,7 +1,7 @@
 package tuco.shell
 
 import cats.{ Applicative, Functor }
-import cats.functor.Invariant
+import cats.Invariant
 import cats.implicits._
 import com.monovore.decline._
 import monocle.Lens
