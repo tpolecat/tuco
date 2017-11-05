@@ -15,17 +15,18 @@ Sometimes it's easier to come in by the window. **Tuco** is a slightly cleaned-u
 
 ### Quick Start
 
-**Tuco** is available for **2.11**, and **2.12** with
+The current development version is **{{site.tucoVersion}}** for **Scala {{site.scalaVersions}}** with
 
-- [cats](https://github.com/typelevel/cats) 0.9.0
-- [cats-effect](https://github.com/typelevel/cats-effect) 0.3
-- [decline](https://github.com/bkirwi/decline) 0.2.2
+- [**cats**](http://typelevel.org/cats/) {{site.catsVersion}}
+- [**cats-effect**](http://typelevel.org/cats/) {{site.catsEffectVersion}}
+- [**decline**](https://github.com/bkirwi/decline) {{site.declineVersion}}
+- [**monocle**](http://julien-truffaut.github.io/Monocle/) {{site.monocleVersion}}
 
 Add the dependency to your `build.sbt` thus:
 
 ```scala
-libraryDependencies += "org.tpolecat" %% "tuco"       % "0.2.0" // either this one
-libraryDependencies += "org.tpolecat" %% "tuco-shell" % "0.2.0" // or this one, which includes the shell API
+libraryDependencies += "org.tpolecat" %% "tuco"       % "{{site.tucoVersion}}" // either this
+libraryDependencies += "org.tpolecat" %% "tuco-shell" % "{{site.tucoVersion}}" // or this, which includes the shell API
 ```
 
 Obviously this is *very early software.* Please experiment and contribute code or suggestions, but don't rely on it for anything important yet unless you are prepared to rewrite things.
