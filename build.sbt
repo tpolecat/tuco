@@ -1,11 +1,19 @@
-// import UnidocKeys._
 import ReleaseTransformations._
+import microsites._
+
+// Library versions all in one place, for convenience and sanity.
+lazy val catsVersion          = "1.0.0-RC1"
+lazy val catsEffectVersion    = "0.5"
+lazy val declineVersion       = "0.4.0-RC1"
+lazy val monocleVersion       = "1.5.0-cats-M2"
+lazy val scala211Version      = "2.11.11"
+lazy val scala212Version      = "2.12.4"
 
 lazy val buildSettings = Seq(
   organization := "org.tpolecat",
   licenses ++= Seq(("MIT", url("http://opensource.org/licenses/MIT"))),
-  scalaVersion := "2.12.4",
-  crossScalaVersions := Seq("2.11.11", scalaVersion.value),
+  scalaVersion := scala212Version,
+  crossScalaVersions := Seq(scala211Version, scalaVersion.value),
   resolvers += Resolver.jcenterRepo
 )
 
@@ -101,12 +109,12 @@ lazy val core = project
   .settings(publishSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "org.typelevel"              %% "cats-core"     % "1.0.0-RC1",
-      "org.typelevel"              %% "cats-free"     % "1.0.0-RC1",
-      "org.typelevel"              %% "cats-effect"   % "0.5",
-      "com.github.julien-truffaut" %% "monocle-core"  % "1.5.0-cats-M2",
-      "com.github.julien-truffaut" %% "monocle-macro" % "1.5.0-cats-M2",
-      "com.github.julien-truffaut" %% "monocle-law"   % "1.5.0-cats-M2"  % "test"
+      "org.typelevel"              %% "cats-core"     % catsVersion,
+      "org.typelevel"              %% "cats-free"     % catsVersion,
+      "org.typelevel"              %% "cats-effect"   % catsEffectVersion,
+      "com.github.julien-truffaut" %% "monocle-core"  % monocleVersion,
+      "com.github.julien-truffaut" %% "monocle-macro" % monocleVersion,
+      "com.github.julien-truffaut" %% "monocle-law"   % monocleVersion  % "test"
     )
   )
 
@@ -118,7 +126,7 @@ lazy val shell = project
   .settings(publishSettings)
   .settings(
     resolvers += Resolver.bintrayRepo("bkirwi", "maven"),
-    libraryDependencies += "com.monovore" %% "decline" % "0.4.0-RC1"
+    libraryDependencies += "com.monovore" %% "decline" % declineVersion
   )
 
 lazy val wimpi = project
@@ -148,6 +156,7 @@ lazy val docs = project
     micrositeAuthor           := "Rob Norris",
     micrositeGithubOwner      := "tpolecat",
     micrositeGithubRepo       := "tuco",
+    micrositeGitterChannel    := false, // no me gusta
     micrositeBaseUrl          := "/tuco",
     micrositeDocumentationUrl := "/tuco/docs/",
     micrositeHighlightTheme   := "color-brewer",
@@ -160,5 +169,15 @@ lazy val docs = project
       "gray-light"        -> "#E3E2E3",
       "gray-lighter"      -> "#F4F3F4",
       "white-color"       -> "#FFFFFF"
+    ),
+    micrositeConfigYaml := ConfigYml(
+      yamlCustomProperties = Map(
+        "tucoVersion"       -> version.value,
+        "catsVersion"       -> catsVersion,
+        "catsEffectVersion" -> catsEffectVersion,
+        "declineVersion"    -> declineVersion,
+        "monocleVersion"    -> monocleVersion,
+        "scalaVersions"     -> crossScalaVersions.value.map(CrossVersion.partialVersion).flatten.map(_._2).mkString("2.", "/", "") // 2.11/12
+      )
     )
   )
