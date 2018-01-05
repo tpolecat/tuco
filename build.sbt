@@ -2,12 +2,17 @@ import ReleaseTransformations._
 import microsites._
 
 // Library versions all in one place, for convenience and sanity.
-lazy val catsVersion          = "1.0.0-RC1"
-lazy val catsEffectVersion    = "0.5"
-lazy val declineVersion       = "0.4.0-RC1"
-lazy val monocleVersion       = "1.5.0-cats-M2"
+lazy val catsVersion          = "1.0.1"
+lazy val catsEffectVersion    = "0.8"
+lazy val declineVersion       = "0.4.0"
+lazy val kpVersion            = "0.9.5"
+lazy val monocleVersion       = "1.5.0-cats"
+lazy val paradiseVersion      = "2.1.1"
 lazy val scala211Version      = "2.11.11"
 lazy val scala212Version      = "2.12.4"
+
+// run dependencyUpdates whenever we [re]load. Spooky eh?
+onLoad in Global := { s => "dependencyUpdates" :: s }
 
 lazy val buildSettings = Seq(
   organization := "org.tpolecat",
@@ -39,8 +44,8 @@ lazy val commonSettings = Seq(
     "-doc-source-url", "https://github.com/tpolecat/tuco/tree/v" + version.value + "€{FILE_PATH}.scala",
     "-skip-packages", "scalaz"
   ),
-  addCompilerPlugin("org.spire-math"  %  "kind-projector" % "0.9.3" cross CrossVersion.binary),
-  addCompilerPlugin("org.scalamacros" %% "paradise"       % "2.1.0" cross CrossVersion.patch),
+  addCompilerPlugin("org.spire-math"  %  "kind-projector" % kpVersion       cross CrossVersion.binary),
+  addCompilerPlugin("org.scalamacros" %% "paradise"       % paradiseVersion cross CrossVersion.patch),
   publishTo := {
     val nexus = "https://oss.sonatype.org/"
     if (isSnapshot.value)
