@@ -3,9 +3,9 @@ import microsites._
 
 // Library versions all in one place, for convenience and sanity.
 lazy val catsVersion          = "1.0.1"
-lazy val catsEffectVersion    = "0.8"
-lazy val declineVersion       = "0.4.0"
-lazy val kpVersion            = "0.9.5"
+lazy val catsEffectVersion    = "0.9"
+lazy val declineVersion       = "0.4.1"
+lazy val kpVersion            = "0.9.6"
 lazy val monocleVersion       = "1.5.0-cats"
 lazy val paradiseVersion      = "2.1.1"
 lazy val scala211Version      = "2.11.11"
