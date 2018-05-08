@@ -25,7 +25,7 @@ The current development version is **{{site.tucoVersion}}** for **Scala {{site.s
 Add the dependency to your `build.sbt` thus:
 
 ```scala
-libraryDependencies += "org.tpolecat" %% "tuco"       % "{{site.tucoVersion}}" // either this
+libraryDependencies += "org.tpolecat" %% "tuco-core"  % "{{site.tucoVersion}}" // either this
 libraryDependencies += "org.tpolecat" %% "tuco-shell" % "{{site.tucoVersion}}" // or this, which includes the shell API
 ```
 
