@@ -5,7 +5,8 @@
 <p>For our next <strong>Tuco</strong> program we will build a telnet server that plays a guessing game with the user. We will need some additional imports.</p>
 
 <div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">import</span> <span class="nn">scala.util.</span><span class="o">{</span> <span class="nc">Random</span><span class="o">,</span> <span class="nc">Try</span><span class="o">,</span> <span class="nc">Success</span><span class="o">,</span> <span class="nc">Failure</span> <span class="o">}</span>
-<span class="k">import</span> <span class="nn">cats._</span><span class="o">,</span> <span class="n">cats</span><span class="o">.</span><span class="n">implicits</span><span class="o">.</span><span class="k">_</span><span class="o">,</span> <span class="n">cats</span><span class="o">.</span><span class="n">kernel</span><span class="o">.</span><span class="nc">Comparison</span><span class="o">.</span><span class="k">_</span><span class="o">,</span> <span class="n">cats</span><span class="o">.</span><span class="n">effect</span><span class="o">.</span><span class="nc">IO</span>
+<span class="k">import</span> <span class="nn">cats._</span><span class="o">,</span> <span class="n">cats</span><span class="o">.</span><span class="n">implicits</span><span class="o">.</span><span class="k">_</span><span class="o">,</span> <span class="n">cats</span><span class="o">.</span><span class="n">kernel</span><span class="o">.</span><span class="nc">Comparison</span><span class="o">.</span><span class="k">_</span><span class="o">,</span> <span class="n">cats</span><span class="o">.</span><span class="n">effect</span><span class="o">.</span><span class="k">_</span>
+<span class="k">import</span> <span class="nn">scala.concurrent.ExecutionContext</span>
 <span class="k">import</span> <span class="nn">tuco._</span><span class="o">,</span> <span class="nc">Tuco</span><span class="o">.</span><span class="k">_</span>
 </code></pre>
 </div>
@@ -49,14 +50,17 @@
 
 <p>Our game is fully implemented and we can define the server config.</p>
 
-<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">conf</span> <span class="k">=</span> <span class="nc">Config</span><span class="o">(</span><span class="n">game</span><span class="o">(</span><span class="k">new</span> <span class="nc">Random</span><span class="o">(</span><span class="mi">123L</span><span class="o">)),</span> <span class="mi">6666</span><span class="o">)</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="c1">// We get this for free when using `IOApp`, as we do in the examples project.
+</span><span class="k">implicit</span> <span class="k">val</span> <span class="n">ioContextShift</span><span class="k">:</span> <span class="kt">ContextShift</span><span class="o">[</span><span class="kt">IO</span><span class="o">]</span> <span class="k">=</span> <span class="nc">IO</span><span class="o">.</span><span class="n">contextShift</span><span class="o">(</span><span class="nc">ExecutionContext</span><span class="o">.</span><span class="n">global</span><span class="o">)</span>
+
+<span class="k">val</span> <span class="n">conf</span> <span class="k">=</span> <span class="nc">Config</span><span class="o">[</span><span class="kt">IO</span><span class="o">](</span><span class="n">game</span><span class="o">(</span><span class="k">new</span> <span class="nc">Random</span><span class="o">(</span><span class="mi">123L</span><span class="o">)),</span> <span class="mi">6666</span><span class="o">)</span>
 </code></pre>
 </div>
 
 <p>Start the server up.</p>
 
 <div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">stop</span> <span class="k">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">start</span><span class="o">.</span><span class="n">unsafeRunSync</span>
-<span class="n">stop</span><span class="k">:</span> <span class="kt">cats.effect.IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span> <span class="nc">IO$646936178</span>
+<span class="n">stop</span><span class="k">:</span> <span class="kt">cats.effect.IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span> <span class="nc">IO$1166548448</span>
 </code></pre>
 </div>
 

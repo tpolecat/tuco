@@ -6,7 +6,8 @@
 
 <p>The first thing we need to do is bring <strong>Tuco</strong> types and constructors into scope. Fine-grained imports are also possible but in most cases this is the expected way to do things.</p>
 
-<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">import</span> <span class="nn">cats._</span><span class="o">,</span> <span class="n">cats</span><span class="o">.</span><span class="n">implicits</span><span class="o">.</span><span class="k">_</span><span class="o">,</span> <span class="n">cats</span><span class="o">.</span><span class="n">effect</span><span class="o">.</span><span class="nc">IO</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">import</span> <span class="nn">cats._</span><span class="o">,</span> <span class="n">cats</span><span class="o">.</span><span class="n">implicits</span><span class="o">.</span><span class="k">_</span><span class="o">,</span> <span class="n">cats</span><span class="o">.</span><span class="n">effect</span><span class="o">.</span><span class="k">_</span>
+<span class="k">import</span> <span class="nn">scala.concurrent.ExecutionContext</span>
 <span class="k">import</span> <span class="nn">tuco._</span><span class="o">,</span> <span class="nc">Tuco</span><span class="o">.</span><span class="k">_</span>
 </code></pre>
 </div>
@@ -17,21 +18,24 @@
   <span class="k">for</span> <span class="o">{</span>
     <span class="k">_</span> <span class="k">&lt;-</span> <span class="n">writeLn</span><span class="o">(</span><span class="s">"Hello World!"</span><span class="o">)</span>
     <span class="n">n</span> <span class="k">&lt;-</span> <span class="n">readLn</span><span class="o">(</span><span class="s">"What is your name? "</span><span class="o">)</span>
-    <span class="k">_</span> <span class="k">&lt;-</span> <span class="n">writeLn</span><span class="o">(</span><span class="n">s</span><span class="s">"Hello $n, and goodbye!"</span><span class="o">)</span>  
+    <span class="k">_</span> <span class="k">&lt;-</span> <span class="n">writeLn</span><span class="o">(</span><span class="n">s</span><span class="s">"Hello $n, and goodbye!"</span><span class="o">)</span>
   <span class="o">}</span> <span class="k">yield</span> <span class="o">()</span>
 </code></pre>
 </div>
 
 <p>To complete the specification of our telnet server we construct a <code class="highlighter-rouge">Config</code> with our behavior and various server options. The defaults are reasonable so we will just provide a port, which is the only required option.</p>
 
-<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="k">val</span> <span class="n">conf</span> <span class="k">=</span> <span class="nc">Config</span><span class="o">(</span><span class="n">hello</span><span class="o">,</span> <span class="mi">6666</span><span class="o">)</span>
+<div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="c1">// We get this for free when using `IOApp`, as we do in the examples project.
+</span><span class="k">implicit</span> <span class="k">val</span> <span class="n">ioContextShift</span><span class="k">:</span> <span class="kt">ContextShift</span><span class="o">[</span><span class="kt">IO</span><span class="o">]</span> <span class="k">=</span> <span class="nc">IO</span><span class="o">.</span><span class="n">contextShift</span><span class="o">(</span><span class="nc">ExecutionContext</span><span class="o">.</span><span class="n">global</span><span class="o">)</span>
+
+<span class="k">val</span> <span class="n">conf</span> <span class="k">=</span> <span class="nc">Config</span><span class="o">[</span><span class="kt">IO</span><span class="o">](</span><span class="n">hello</span><span class="o">,</span> <span class="mi">6666</span><span class="o">)</span>
 </code></pre>
 </div>
 
 <p>We can now start our server by running the <code class="highlighter-rouge">.start</code> action, which starts up the server and returns an <code class="highlighter-rouge">IO</code> action that we can use to stop the server.</p>
 
 <div class="language-scala highlighter-rouge"><pre class="highlight"><code><span class="n">scala</span><span class="o">&gt;</span> <span class="k">val</span> <span class="n">stop</span> <span class="k">=</span> <span class="n">conf</span><span class="o">.</span><span class="n">start</span><span class="o">.</span><span class="n">unsafeRunSync</span>
-<span class="n">stop</span><span class="k">:</span> <span class="kt">cats.effect.IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span> <span class="nc">IO$796926868</span>
+<span class="n">stop</span><span class="k">:</span> <span class="kt">cats.effect.IO</span><span class="o">[</span><span class="kt">Unit</span><span class="o">]</span> <span class="k">=</span> <span class="nc">IO$756423725</span>
 </code></pre>
 </div>
 
