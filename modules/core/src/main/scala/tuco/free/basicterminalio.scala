@@ -1,12 +1,14 @@
 package tuco.free
 
 import cats.~>
-import cats.effect.Async
+import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
+import scala.concurrent.ExecutionContext
 
 import java.lang.String
 import net.wimpi.telnetd.io.BasicTerminalIO
 
+@SuppressWarnings(Array("org.wartremover.warts.Overloading"))
 object basicterminalio { module =>
 
   // Algebra of operations for BasicTerminalIO. Each accepts a visitor as an alternatie to pattern-matching.
@@ -37,6 +39,10 @@ object basicterminalio { module =>
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: BasicTerminalIOIO[A], f: Throwable => BasicTerminalIOIO[A]): F[A]
       def async[A](k: (Either[Throwable, A] => Unit) => Unit): F[A]
+      def asyncF[A](k: (Either[Throwable, A] => Unit) => BasicTerminalIOIO[Unit]): F[A]
+      def bracketCase[A, B](acquire: BasicTerminalIOIO[A])(use: A => BasicTerminalIOIO[B])(release: (A, ExitCase[Throwable]) => BasicTerminalIOIO[Unit]): F[B]
+      def shift: F[Unit]
+      def evalOn[A](ec: ExecutionContext)(fa: BasicTerminalIOIO[A]): F[A]
 
       // BasicTerminalIO
       def bell: F[Unit]
@@ -85,147 +91,159 @@ object basicterminalio { module =>
     }
 
     // Common operations for all algebras.
-    case class Raw[A](f: BasicTerminalIO => A) extends BasicTerminalIOOp[A] {
+    final case class Raw[A](f: BasicTerminalIO => A) extends BasicTerminalIOOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.raw(f)
     }
-    case class Embed[A](e: Embedded[A]) extends BasicTerminalIOOp[A] {
+    final case class Embed[A](e: Embedded[A]) extends BasicTerminalIOOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.embed(e)
     }
-    case class Delay[A](a: () => A) extends BasicTerminalIOOp[A] {
+    final case class Delay[A](a: () => A) extends BasicTerminalIOOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.delay(a)
     }
-    case class HandleErrorWith[A](fa: BasicTerminalIOIO[A], f: Throwable => BasicTerminalIOIO[A]) extends BasicTerminalIOOp[A] {
+    final case class HandleErrorWith[A](fa: BasicTerminalIOIO[A], f: Throwable => BasicTerminalIOIO[A]) extends BasicTerminalIOOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.handleErrorWith(fa, f)
     }
-    case class Async1[A](k: (Either[Throwable, A] => Unit) => Unit) extends BasicTerminalIOOp[A] {
+    final case class Async1[A](k: (Either[Throwable, A] => Unit) => Unit) extends BasicTerminalIOOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.async(k)
+    }
+    final case class AsyncF[A](k: (Either[Throwable, A] => Unit) => BasicTerminalIOIO[Unit]) extends BasicTerminalIOOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.asyncF(k)
+    }
+    final case class BracketCase[A, B](acquire: BasicTerminalIOIO[A], use: A => BasicTerminalIOIO[B], release: (A, ExitCase[Throwable]) => BasicTerminalIOIO[Unit]) extends BasicTerminalIOOp[B] {
+      def visit[F[_]](v: Visitor[F]) = v.bracketCase(acquire)(use)(release)
+    }
+    final case object Shift extends BasicTerminalIOOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.shift
+    }
+    final case class EvalOn[A](ec: ExecutionContext, fa: BasicTerminalIOIO[A]) extends BasicTerminalIOOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
     }
 
     // BasicTerminalIO-specific operations.
-    case object Bell extends BasicTerminalIOOp[Unit] {
+    final case object Bell extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.bell
     }
-    case object Close extends BasicTerminalIOOp[Unit] {
+    final case object Close extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.close
     }
-    case class  DefineScrollRegion(a: Int, b: Int) extends BasicTerminalIOOp[Boolean] {
+    final case class  DefineScrollRegion(a: Int, b: Int) extends BasicTerminalIOOp[Boolean] {
       def visit[F[_]](v: Visitor[F]) = v.defineScrollRegion(a, b)
     }
-    case object EraseLine extends BasicTerminalIOOp[Unit] {
+    final case object EraseLine extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.eraseLine
     }
-    case object EraseScreen extends BasicTerminalIOOp[Unit] {
+    final case object EraseScreen extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.eraseScreen
     }
-    case object EraseToBeginOfLine extends BasicTerminalIOOp[Unit] {
+    final case object EraseToBeginOfLine extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.eraseToBeginOfLine
     }
-    case object EraseToBeginOfScreen extends BasicTerminalIOOp[Unit] {
+    final case object EraseToBeginOfScreen extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.eraseToBeginOfScreen
     }
-    case object EraseToEndOfLine extends BasicTerminalIOOp[Unit] {
+    final case object EraseToEndOfLine extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.eraseToEndOfLine
     }
-    case object EraseToEndOfScreen extends BasicTerminalIOOp[Unit] {
+    final case object EraseToEndOfScreen extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.eraseToEndOfScreen
     }
-    case object Flush extends BasicTerminalIOOp[Unit] {
+    final case object Flush extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.flush
     }
-    case class  ForceBold(a: Boolean) extends BasicTerminalIOOp[Unit] {
+    final case class  ForceBold(a: Boolean) extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.forceBold(a)
     }
-    case object GetColumns extends BasicTerminalIOOp[Int] {
+    final case object GetColumns extends BasicTerminalIOOp[Int] {
       def visit[F[_]](v: Visitor[F]) = v.getColumns
     }
-    case object GetRows extends BasicTerminalIOOp[Int] {
+    final case object GetRows extends BasicTerminalIOOp[Int] {
       def visit[F[_]](v: Visitor[F]) = v.getRows
     }
-    case object HomeCursor extends BasicTerminalIOOp[Unit] {
+    final case object HomeCursor extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.homeCursor
     }
-    case object IsAutoflushing extends BasicTerminalIOOp[Boolean] {
+    final case object IsAutoflushing extends BasicTerminalIOOp[Boolean] {
       def visit[F[_]](v: Visitor[F]) = v.isAutoflushing
     }
-    case object IsLineWrapping extends BasicTerminalIOOp[Boolean] {
+    final case object IsLineWrapping extends BasicTerminalIOOp[Boolean] {
       def visit[F[_]](v: Visitor[F]) = v.isLineWrapping
     }
-    case object IsSignalling extends BasicTerminalIOOp[Boolean] {
+    final case object IsSignalling extends BasicTerminalIOOp[Boolean] {
       def visit[F[_]](v: Visitor[F]) = v.isSignalling
     }
-    case class  MoveCursor(a: Int, b: Int) extends BasicTerminalIOOp[Unit] {
+    final case class  MoveCursor(a: Int, b: Int) extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.moveCursor(a, b)
     }
-    case class  MoveDown(a: Int) extends BasicTerminalIOOp[Unit] {
+    final case class  MoveDown(a: Int) extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.moveDown(a)
     }
-    case class  MoveLeft(a: Int) extends BasicTerminalIOOp[Unit] {
+    final case class  MoveLeft(a: Int) extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.moveLeft(a)
     }
-    case class  MoveRight(a: Int) extends BasicTerminalIOOp[Unit] {
+    final case class  MoveRight(a: Int) extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.moveRight(a)
     }
-    case class  MoveUp(a: Int) extends BasicTerminalIOOp[Unit] {
+    final case class  MoveUp(a: Int) extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.moveUp(a)
     }
-    case object Read extends BasicTerminalIOOp[Int] {
+    final case object Read extends BasicTerminalIOOp[Int] {
       def visit[F[_]](v: Visitor[F]) = v.read
     }
-    case object ResetAttributes extends BasicTerminalIOOp[Unit] {
+    final case object ResetAttributes extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.resetAttributes
     }
-    case object ResetTerminal extends BasicTerminalIOOp[Unit] {
+    final case object ResetTerminal extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.resetTerminal
     }
-    case object RestoreCursor extends BasicTerminalIOOp[Unit] {
+    final case object RestoreCursor extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.restoreCursor
     }
-    case class  SetAutoflushing(a: Boolean) extends BasicTerminalIOOp[Unit] {
+    final case class  SetAutoflushing(a: Boolean) extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.setAutoflushing(a)
     }
-    case class  SetBackgroundColor(a: Int) extends BasicTerminalIOOp[Unit] {
+    final case class  SetBackgroundColor(a: Int) extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.setBackgroundColor(a)
     }
-    case class  SetBlink(a: Boolean) extends BasicTerminalIOOp[Unit] {
+    final case class  SetBlink(a: Boolean) extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.setBlink(a)
     }
-    case class  SetBold(a: Boolean) extends BasicTerminalIOOp[Unit] {
+    final case class  SetBold(a: Boolean) extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.setBold(a)
     }
-    case class  SetCursor(a: Int, b: Int) extends BasicTerminalIOOp[Unit] {
+    final case class  SetCursor(a: Int, b: Int) extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.setCursor(a, b)
     }
-    case object SetDefaultTerminal extends BasicTerminalIOOp[Unit] {
+    final case object SetDefaultTerminal extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.setDefaultTerminal
     }
-    case class  SetForegroundColor(a: Int) extends BasicTerminalIOOp[Unit] {
+    final case class  SetForegroundColor(a: Int) extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.setForegroundColor(a)
     }
-    case class  SetItalic(a: Boolean) extends BasicTerminalIOOp[Unit] {
+    final case class  SetItalic(a: Boolean) extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.setItalic(a)
     }
-    case class  SetLinewrapping(a: Boolean) extends BasicTerminalIOOp[Unit] {
+    final case class  SetLinewrapping(a: Boolean) extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.setLinewrapping(a)
     }
-    case class  SetSignalling(a: Boolean) extends BasicTerminalIOOp[Unit] {
+    final case class  SetSignalling(a: Boolean) extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.setSignalling(a)
     }
-    case class  SetTerminal(a: String) extends BasicTerminalIOOp[Unit] {
+    final case class  SetTerminal(a: String) extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.setTerminal(a)
     }
-    case class  SetUnderlined(a: Boolean) extends BasicTerminalIOOp[Unit] {
+    final case class  SetUnderlined(a: Boolean) extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.setUnderlined(a)
     }
-    case object StoreCursor extends BasicTerminalIOOp[Unit] {
+    final case object StoreCursor extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.storeCursor
     }
-    case class  Write(a: Byte) extends BasicTerminalIOOp[Unit] {
+    final case class  Write(a: Byte) extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.write(a)
     }
-    case class  Write1(a: Char) extends BasicTerminalIOOp[Unit] {
+    final case class  Write1(a: Char) extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.write(a)
     }
-    case class  Write2(a: String) extends BasicTerminalIOOp[Unit] {
+    final case class  Write2(a: String) extends BasicTerminalIOOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.write(a)
     }
 
@@ -234,12 +252,17 @@ object basicterminalio { module =>
 
   // Smart constructors for operations common to all algebras.
   val unit: BasicTerminalIOIO[Unit] = FF.pure[BasicTerminalIOOp, Unit](())
+  def pure[A](a: A): BasicTerminalIOIO[A] = FF.pure[BasicTerminalIOOp, A](a)
   def raw[A](f: BasicTerminalIO => A): BasicTerminalIOIO[A] = FF.liftF(Raw(f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[BasicTerminalIOOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): BasicTerminalIOIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: BasicTerminalIOIO[A], f: Throwable => BasicTerminalIOIO[A]): BasicTerminalIOIO[A] = FF.liftF[BasicTerminalIOOp, A](HandleErrorWith(fa, f))
   def raiseError[A](err: Throwable): BasicTerminalIOIO[A] = delay(throw err)
   def async[A](k: (Either[Throwable, A] => Unit) => Unit): BasicTerminalIOIO[A] = FF.liftF[BasicTerminalIOOp, A](Async1(k))
+  def asyncF[A](k: (Either[Throwable, A] => Unit) => BasicTerminalIOIO[Unit]): BasicTerminalIOIO[A] = FF.liftF[BasicTerminalIOOp, A](AsyncF(k))
+  def bracketCase[A, B](acquire: BasicTerminalIOIO[A])(use: A => BasicTerminalIOIO[B])(release: (A, ExitCase[Throwable]) => BasicTerminalIOIO[Unit]): BasicTerminalIOIO[B] = FF.liftF[BasicTerminalIOOp, B](BracketCase(acquire, use, release))
+  val shift: BasicTerminalIOIO[Unit] = FF.liftF[BasicTerminalIOOp, Unit](Shift)
+  def evalOn[A](ec: ExecutionContext)(fa: BasicTerminalIOIO[A]) = FF.liftF[BasicTerminalIOOp, A](EvalOn(ec, fa))
 
   // Smart constructors for BasicTerminalIO-specific operations.
   val bell: BasicTerminalIOIO[Unit] = FF.liftF(Bell)
@@ -288,15 +311,23 @@ object basicterminalio { module =>
   // BasicTerminalIOIO is an Async
   implicit val AsyncBasicTerminalIOIO: Async[BasicTerminalIOIO] =
     new Async[BasicTerminalIOIO] {
-      val M = FF.catsFreeMonadForFree[BasicTerminalIOOp]
-      def pure[A](x: A): BasicTerminalIOIO[A] = M.pure(x)
+      val asyncM = FF.catsFreeMonadForFree[BasicTerminalIOOp]
+      def bracketCase[A, B](acquire: BasicTerminalIOIO[A])(use: A => BasicTerminalIOIO[B])(release: (A, ExitCase[Throwable]) => BasicTerminalIOIO[Unit]): BasicTerminalIOIO[B] = module.bracketCase(acquire)(use)(release)
+      def pure[A](x: A): BasicTerminalIOIO[A] = asyncM.pure(x)
       def handleErrorWith[A](fa: BasicTerminalIOIO[A])(f: Throwable => BasicTerminalIOIO[A]): BasicTerminalIOIO[A] = module.handleErrorWith(fa, f)
       def raiseError[A](e: Throwable): BasicTerminalIOIO[A] = module.raiseError(e)
       def async[A](k: (Either[Throwable,A] => Unit) => Unit): BasicTerminalIOIO[A] = module.async(k)
-      def flatMap[A, B](fa: BasicTerminalIOIO[A])(f: A => BasicTerminalIOIO[B]): BasicTerminalIOIO[B] = M.flatMap(fa)(f)
-      def tailRecM[A, B](a: A)(f: A => BasicTerminalIOIO[Either[A, B]]): BasicTerminalIOIO[B] = M.tailRecM(a)(f)
-      def suspend[A](thunk: => BasicTerminalIOIO[A]): BasicTerminalIOIO[A] = M.flatten(module.delay(thunk))
+      def asyncF[A](k: (Either[Throwable,A] => Unit) => BasicTerminalIOIO[Unit]): BasicTerminalIOIO[A] = module.asyncF(k)
+      def flatMap[A, B](fa: BasicTerminalIOIO[A])(f: A => BasicTerminalIOIO[B]): BasicTerminalIOIO[B] = asyncM.flatMap(fa)(f)
+      def tailRecM[A, B](a: A)(f: A => BasicTerminalIOIO[Either[A, B]]): BasicTerminalIOIO[B] = asyncM.tailRecM(a)(f)
+      def suspend[A](thunk: => BasicTerminalIOIO[A]): BasicTerminalIOIO[A] = asyncM.flatten(module.delay(thunk))
     }
 
+  // BasicTerminalIOIO is a ContextShift
+  implicit val ContextShiftBasicTerminalIOIO: ContextShift[BasicTerminalIOIO] =
+    new ContextShift[BasicTerminalIOIO] {
+      def shift: BasicTerminalIOIO[Unit] = module.shift
+      def evalOn[A](ec: ExecutionContext)(fa: BasicTerminalIOIO[A]) = module.evalOn(ec)(fa)
+    }
 }
 

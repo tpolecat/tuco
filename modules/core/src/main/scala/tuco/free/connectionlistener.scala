@@ -1,12 +1,14 @@
 package tuco.free
 
 import cats.~>
-import cats.effect.Async
+import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
+import scala.concurrent.ExecutionContext
 
 import net.wimpi.telnetd.net.ConnectionEvent
 import net.wimpi.telnetd.net.ConnectionListener
 
+@SuppressWarnings(Array("org.wartremover.warts.Overloading"))
 object connectionlistener { module =>
 
   // Algebra of operations for ConnectionListener. Each accepts a visitor as an alternatie to pattern-matching.
@@ -37,6 +39,10 @@ object connectionlistener { module =>
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: ConnectionListenerIO[A], f: Throwable => ConnectionListenerIO[A]): F[A]
       def async[A](k: (Either[Throwable, A] => Unit) => Unit): F[A]
+      def asyncF[A](k: (Either[Throwable, A] => Unit) => ConnectionListenerIO[Unit]): F[A]
+      def bracketCase[A, B](acquire: ConnectionListenerIO[A])(use: A => ConnectionListenerIO[B])(release: (A, ExitCase[Throwable]) => ConnectionListenerIO[Unit]): F[B]
+      def shift: F[Unit]
+      def evalOn[A](ec: ExecutionContext)(fa: ConnectionListenerIO[A]): F[A]
 
       // ConnectionListener
       def connectionIdle(a: ConnectionEvent): F[Unit]
@@ -47,33 +53,45 @@ object connectionlistener { module =>
     }
 
     // Common operations for all algebras.
-    case class Raw[A](f: ConnectionListener => A) extends ConnectionListenerOp[A] {
+    final case class Raw[A](f: ConnectionListener => A) extends ConnectionListenerOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.raw(f)
     }
-    case class Embed[A](e: Embedded[A]) extends ConnectionListenerOp[A] {
+    final case class Embed[A](e: Embedded[A]) extends ConnectionListenerOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.embed(e)
     }
-    case class Delay[A](a: () => A) extends ConnectionListenerOp[A] {
+    final case class Delay[A](a: () => A) extends ConnectionListenerOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.delay(a)
     }
-    case class HandleErrorWith[A](fa: ConnectionListenerIO[A], f: Throwable => ConnectionListenerIO[A]) extends ConnectionListenerOp[A] {
+    final case class HandleErrorWith[A](fa: ConnectionListenerIO[A], f: Throwable => ConnectionListenerIO[A]) extends ConnectionListenerOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.handleErrorWith(fa, f)
     }
-    case class Async1[A](k: (Either[Throwable, A] => Unit) => Unit) extends ConnectionListenerOp[A] {
+    final case class Async1[A](k: (Either[Throwable, A] => Unit) => Unit) extends ConnectionListenerOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.async(k)
+    }
+    final case class AsyncF[A](k: (Either[Throwable, A] => Unit) => ConnectionListenerIO[Unit]) extends ConnectionListenerOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.asyncF(k)
+    }
+    final case class BracketCase[A, B](acquire: ConnectionListenerIO[A], use: A => ConnectionListenerIO[B], release: (A, ExitCase[Throwable]) => ConnectionListenerIO[Unit]) extends ConnectionListenerOp[B] {
+      def visit[F[_]](v: Visitor[F]) = v.bracketCase(acquire)(use)(release)
+    }
+    final case object Shift extends ConnectionListenerOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.shift
+    }
+    final case class EvalOn[A](ec: ExecutionContext, fa: ConnectionListenerIO[A]) extends ConnectionListenerOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
     }
 
     // ConnectionListener-specific operations.
-    case class  ConnectionIdle(a: ConnectionEvent) extends ConnectionListenerOp[Unit] {
+    final case class  ConnectionIdle(a: ConnectionEvent) extends ConnectionListenerOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.connectionIdle(a)
     }
-    case class  ConnectionLogoutRequest(a: ConnectionEvent) extends ConnectionListenerOp[Unit] {
+    final case class  ConnectionLogoutRequest(a: ConnectionEvent) extends ConnectionListenerOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.connectionLogoutRequest(a)
     }
-    case class  ConnectionSentBreak(a: ConnectionEvent) extends ConnectionListenerOp[Unit] {
+    final case class  ConnectionSentBreak(a: ConnectionEvent) extends ConnectionListenerOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.connectionSentBreak(a)
     }
-    case class  ConnectionTimedOut(a: ConnectionEvent) extends ConnectionListenerOp[Unit] {
+    final case class  ConnectionTimedOut(a: ConnectionEvent) extends ConnectionListenerOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.connectionTimedOut(a)
     }
 
@@ -82,12 +100,17 @@ object connectionlistener { module =>
 
   // Smart constructors for operations common to all algebras.
   val unit: ConnectionListenerIO[Unit] = FF.pure[ConnectionListenerOp, Unit](())
+  def pure[A](a: A): ConnectionListenerIO[A] = FF.pure[ConnectionListenerOp, A](a)
   def raw[A](f: ConnectionListener => A): ConnectionListenerIO[A] = FF.liftF(Raw(f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[ConnectionListenerOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): ConnectionListenerIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: ConnectionListenerIO[A], f: Throwable => ConnectionListenerIO[A]): ConnectionListenerIO[A] = FF.liftF[ConnectionListenerOp, A](HandleErrorWith(fa, f))
   def raiseError[A](err: Throwable): ConnectionListenerIO[A] = delay(throw err)
   def async[A](k: (Either[Throwable, A] => Unit) => Unit): ConnectionListenerIO[A] = FF.liftF[ConnectionListenerOp, A](Async1(k))
+  def asyncF[A](k: (Either[Throwable, A] => Unit) => ConnectionListenerIO[Unit]): ConnectionListenerIO[A] = FF.liftF[ConnectionListenerOp, A](AsyncF(k))
+  def bracketCase[A, B](acquire: ConnectionListenerIO[A])(use: A => ConnectionListenerIO[B])(release: (A, ExitCase[Throwable]) => ConnectionListenerIO[Unit]): ConnectionListenerIO[B] = FF.liftF[ConnectionListenerOp, B](BracketCase(acquire, use, release))
+  val shift: ConnectionListenerIO[Unit] = FF.liftF[ConnectionListenerOp, Unit](Shift)
+  def evalOn[A](ec: ExecutionContext)(fa: ConnectionListenerIO[A]) = FF.liftF[ConnectionListenerOp, A](EvalOn(ec, fa))
 
   // Smart constructors for ConnectionListener-specific operations.
   def connectionIdle(a: ConnectionEvent): ConnectionListenerIO[Unit] = FF.liftF(ConnectionIdle(a))
@@ -98,15 +121,23 @@ object connectionlistener { module =>
   // ConnectionListenerIO is an Async
   implicit val AsyncConnectionListenerIO: Async[ConnectionListenerIO] =
     new Async[ConnectionListenerIO] {
-      val M = FF.catsFreeMonadForFree[ConnectionListenerOp]
-      def pure[A](x: A): ConnectionListenerIO[A] = M.pure(x)
+      val asyncM = FF.catsFreeMonadForFree[ConnectionListenerOp]
+      def bracketCase[A, B](acquire: ConnectionListenerIO[A])(use: A => ConnectionListenerIO[B])(release: (A, ExitCase[Throwable]) => ConnectionListenerIO[Unit]): ConnectionListenerIO[B] = module.bracketCase(acquire)(use)(release)
+      def pure[A](x: A): ConnectionListenerIO[A] = asyncM.pure(x)
       def handleErrorWith[A](fa: ConnectionListenerIO[A])(f: Throwable => ConnectionListenerIO[A]): ConnectionListenerIO[A] = module.handleErrorWith(fa, f)
       def raiseError[A](e: Throwable): ConnectionListenerIO[A] = module.raiseError(e)
       def async[A](k: (Either[Throwable,A] => Unit) => Unit): ConnectionListenerIO[A] = module.async(k)
-      def flatMap[A, B](fa: ConnectionListenerIO[A])(f: A => ConnectionListenerIO[B]): ConnectionListenerIO[B] = M.flatMap(fa)(f)
-      def tailRecM[A, B](a: A)(f: A => ConnectionListenerIO[Either[A, B]]): ConnectionListenerIO[B] = M.tailRecM(a)(f)
-      def suspend[A](thunk: => ConnectionListenerIO[A]): ConnectionListenerIO[A] = M.flatten(module.delay(thunk))
+      def asyncF[A](k: (Either[Throwable,A] => Unit) => ConnectionListenerIO[Unit]): ConnectionListenerIO[A] = module.asyncF(k)
+      def flatMap[A, B](fa: ConnectionListenerIO[A])(f: A => ConnectionListenerIO[B]): ConnectionListenerIO[B] = asyncM.flatMap(fa)(f)
+      def tailRecM[A, B](a: A)(f: A => ConnectionListenerIO[Either[A, B]]): ConnectionListenerIO[B] = asyncM.tailRecM(a)(f)
+      def suspend[A](thunk: => ConnectionListenerIO[A]): ConnectionListenerIO[A] = asyncM.flatten(module.delay(thunk))
     }
 
+  // ConnectionListenerIO is a ContextShift
+  implicit val ContextShiftConnectionListenerIO: ContextShift[ConnectionListenerIO] =
+    new ContextShift[ConnectionListenerIO] {
+      def shift: ConnectionListenerIO[Unit] = module.shift
+      def evalOn[A](ec: ExecutionContext)(fa: ConnectionListenerIO[A]) = module.evalOn(ec)(fa)
+    }
 }
 

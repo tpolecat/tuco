@@ -2,14 +2,14 @@ import ReleaseTransformations._
 import microsites._
 
 // Library versions all in one place, for convenience and sanity.
-lazy val catsVersion          = "1.0.1"
-lazy val catsEffectVersion    = "0.9"
-lazy val declineVersion       = "0.4.1"
-lazy val kpVersion            = "0.9.6"
-lazy val monocleVersion       = "1.5.0-cats"
+lazy val catsVersion          = "1.4.0"
+lazy val catsEffectVersion    = "1.0.0"
+lazy val declineVersion       = "0.5.1"
+lazy val kpVersion            = "0.9.8"
+lazy val monocleVersion       = "1.5.1-cats"
 lazy val paradiseVersion      = "2.1.1"
 lazy val scala211Version      = "2.11.11"
-lazy val scala212Version      = "2.12.4"
+lazy val scala212Version      = "2.12.7"
 
 // run dependencyUpdates whenever we [re]load. Spooky eh?
 onLoad in Global := { s => "dependencyUpdates" :: s }
@@ -36,7 +36,8 @@ lazy val commonSettings = Seq(
     "-Yno-adapted-args",
     "-Ywarn-dead-code",
     "-Ywarn-value-discard",
-    "-Ypartial-unification"
+    "-Ypartial-unification",
+    "-Yrangepos"
   ),
   scalacOptions in (Compile, doc) ++= Seq(
     "-groups",

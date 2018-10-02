@@ -1,9 +1,9 @@
 package example
 
-import cats.effect.IO
+import cats.effect._, cats.implicits._
 import tuco._, Tuco._
 
-object HelloWorld {
+object HelloWorld extends IOApp {
 
   // Let's define a user session.
   val hello: SessionIO[Unit] =
@@ -14,7 +14,9 @@ object HelloWorld {
     } yield ()
 
   // Simple server on the given port.
-  def main(args: Array[String]): Unit =
-    Config(hello, 6666).run(simpleServer).unsafeRunSync
+  def run(args: List[String]): IO[ExitCode] =
+    Config[IO](hello, 6666)
+      .run(simpleServer)
+      .as(ExitCode.Success)
 
 }

@@ -5,7 +5,7 @@ import cats._, cats.implicits._, cats.effect._
 import tuco._, Tuco._
 import tuco.shell._
 
-object TodoList {
+object TodoList extends IOApp {
 
   case class Todo(text: String)
 
@@ -97,7 +97,9 @@ object TodoList {
     } yield ()
 
   // Simple server on the given port.
-  def main(args: Array[String]): Unit =
-    Config(interact, 6666).run(simpleServer).unsafeRunSync
+  def run(args: List[String]): IO[ExitCode] =
+    Config[IO](interact, 6666)
+      .run(simpleServer)
+      .as(ExitCode.Success)
 
 }

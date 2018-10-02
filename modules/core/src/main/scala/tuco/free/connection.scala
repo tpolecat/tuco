@@ -1,8 +1,9 @@
 package tuco.free
 
 import cats.~>
-import cats.effect.Async
+import cats.effect.{ Async, ContextShift, ExitCase }
 import cats.free.{ Free => FF } // alias because some algebras have an op called Free
+import scala.concurrent.ExecutionContext
 
 import java.lang.String
 import net.wimpi.telnetd.io.BasicTerminalIO
@@ -11,6 +12,7 @@ import net.wimpi.telnetd.net.ConnectionData
 import net.wimpi.telnetd.net.ConnectionEvent
 import net.wimpi.telnetd.net.ConnectionListener
 
+@SuppressWarnings(Array("org.wartremover.warts.Overloading"))
 object connection { module =>
 
   // Algebra of operations for Connection. Each accepts a visitor as an alternatie to pattern-matching.
@@ -41,6 +43,10 @@ object connection { module =>
       def delay[A](a: () => A): F[A]
       def handleErrorWith[A](fa: ConnectionIO[A], f: Throwable => ConnectionIO[A]): F[A]
       def async[A](k: (Either[Throwable, A] => Unit) => Unit): F[A]
+      def asyncF[A](k: (Either[Throwable, A] => Unit) => ConnectionIO[Unit]): F[A]
+      def bracketCase[A, B](acquire: ConnectionIO[A])(use: A => ConnectionIO[B])(release: (A, ExitCase[Throwable]) => ConnectionIO[Unit]): F[B]
+      def shift: F[Unit]
+      def evalOn[A](ec: ExecutionContext)(fa: ConnectionIO[A]): F[A]
 
       // Connection
       def addConnectionListener(a: ConnectionListener): F[Unit]
@@ -56,48 +62,60 @@ object connection { module =>
     }
 
     // Common operations for all algebras.
-    case class Raw[A](f: Connection => A) extends ConnectionOp[A] {
+    final case class Raw[A](f: Connection => A) extends ConnectionOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.raw(f)
     }
-    case class Embed[A](e: Embedded[A]) extends ConnectionOp[A] {
+    final case class Embed[A](e: Embedded[A]) extends ConnectionOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.embed(e)
     }
-    case class Delay[A](a: () => A) extends ConnectionOp[A] {
+    final case class Delay[A](a: () => A) extends ConnectionOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.delay(a)
     }
-    case class HandleErrorWith[A](fa: ConnectionIO[A], f: Throwable => ConnectionIO[A]) extends ConnectionOp[A] {
+    final case class HandleErrorWith[A](fa: ConnectionIO[A], f: Throwable => ConnectionIO[A]) extends ConnectionOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.handleErrorWith(fa, f)
     }
-    case class Async1[A](k: (Either[Throwable, A] => Unit) => Unit) extends ConnectionOp[A] {
+    final case class Async1[A](k: (Either[Throwable, A] => Unit) => Unit) extends ConnectionOp[A] {
       def visit[F[_]](v: Visitor[F]) = v.async(k)
+    }
+    final case class AsyncF[A](k: (Either[Throwable, A] => Unit) => ConnectionIO[Unit]) extends ConnectionOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.asyncF(k)
+    }
+    final case class BracketCase[A, B](acquire: ConnectionIO[A], use: A => ConnectionIO[B], release: (A, ExitCase[Throwable]) => ConnectionIO[Unit]) extends ConnectionOp[B] {
+      def visit[F[_]](v: Visitor[F]) = v.bracketCase(acquire)(use)(release)
+    }
+    final case object Shift extends ConnectionOp[Unit] {
+      def visit[F[_]](v: Visitor[F]) = v.shift
+    }
+    final case class EvalOn[A](ec: ExecutionContext, fa: ConnectionIO[A]) extends ConnectionOp[A] {
+      def visit[F[_]](v: Visitor[F]) = v.evalOn(ec)(fa)
     }
 
     // Connection-specific operations.
-    case class  AddConnectionListener(a: ConnectionListener) extends ConnectionOp[Unit] {
+    final case class  AddConnectionListener(a: ConnectionListener) extends ConnectionOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.addConnectionListener(a)
     }
-    case object Close extends ConnectionOp[Unit] {
+    final case object Close extends ConnectionOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.close
     }
-    case object GetConnectionData extends ConnectionOp[ConnectionData] {
+    final case object GetConnectionData extends ConnectionOp[ConnectionData] {
       def visit[F[_]](v: Visitor[F]) = v.getConnectionData
     }
-    case object GetTerminalIO extends ConnectionOp[BasicTerminalIO] {
+    final case object GetTerminalIO extends ConnectionOp[BasicTerminalIO] {
       def visit[F[_]](v: Visitor[F]) = v.getTerminalIO
     }
-    case object IsActive extends ConnectionOp[Boolean] {
+    final case object IsActive extends ConnectionOp[Boolean] {
       def visit[F[_]](v: Visitor[F]) = v.isActive
     }
-    case class  ProcessConnectionEvent(a: ConnectionEvent) extends ConnectionOp[Unit] {
+    final case class  ProcessConnectionEvent(a: ConnectionEvent) extends ConnectionOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.processConnectionEvent(a)
     }
-    case class  RemoveConnectionListener(a: ConnectionListener) extends ConnectionOp[Unit] {
+    final case class  RemoveConnectionListener(a: ConnectionListener) extends ConnectionOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.removeConnectionListener(a)
     }
-    case object Run extends ConnectionOp[Unit] {
+    final case object Run extends ConnectionOp[Unit] {
       def visit[F[_]](v: Visitor[F]) = v.run
     }
-    case class  SetNextShell(a: String) extends ConnectionOp[Boolean] {
+    final case class  SetNextShell(a: String) extends ConnectionOp[Boolean] {
       def visit[F[_]](v: Visitor[F]) = v.setNextShell(a)
     }
 
@@ -106,12 +124,17 @@ object connection { module =>
 
   // Smart constructors for operations common to all algebras.
   val unit: ConnectionIO[Unit] = FF.pure[ConnectionOp, Unit](())
+  def pure[A](a: A): ConnectionIO[A] = FF.pure[ConnectionOp, A](a)
   def raw[A](f: Connection => A): ConnectionIO[A] = FF.liftF(Raw(f))
   def embed[F[_], J, A](j: J, fa: FF[F, A])(implicit ev: Embeddable[F, J]): FF[ConnectionOp, A] = FF.liftF(Embed(ev.embed(j, fa)))
   def delay[A](a: => A): ConnectionIO[A] = FF.liftF(Delay(() => a))
   def handleErrorWith[A](fa: ConnectionIO[A], f: Throwable => ConnectionIO[A]): ConnectionIO[A] = FF.liftF[ConnectionOp, A](HandleErrorWith(fa, f))
   def raiseError[A](err: Throwable): ConnectionIO[A] = delay(throw err)
   def async[A](k: (Either[Throwable, A] => Unit) => Unit): ConnectionIO[A] = FF.liftF[ConnectionOp, A](Async1(k))
+  def asyncF[A](k: (Either[Throwable, A] => Unit) => ConnectionIO[Unit]): ConnectionIO[A] = FF.liftF[ConnectionOp, A](AsyncF(k))
+  def bracketCase[A, B](acquire: ConnectionIO[A])(use: A => ConnectionIO[B])(release: (A, ExitCase[Throwable]) => ConnectionIO[Unit]): ConnectionIO[B] = FF.liftF[ConnectionOp, B](BracketCase(acquire, use, release))
+  val shift: ConnectionIO[Unit] = FF.liftF[ConnectionOp, Unit](Shift)
+  def evalOn[A](ec: ExecutionContext)(fa: ConnectionIO[A]) = FF.liftF[ConnectionOp, A](EvalOn(ec, fa))
 
   // Smart constructors for Connection-specific operations.
   def addConnectionListener(a: ConnectionListener): ConnectionIO[Unit] = FF.liftF(AddConnectionListener(a))
@@ -127,15 +150,23 @@ object connection { module =>
   // ConnectionIO is an Async
   implicit val AsyncConnectionIO: Async[ConnectionIO] =
     new Async[ConnectionIO] {
-      val M = FF.catsFreeMonadForFree[ConnectionOp]
-      def pure[A](x: A): ConnectionIO[A] = M.pure(x)
+      val asyncM = FF.catsFreeMonadForFree[ConnectionOp]
+      def bracketCase[A, B](acquire: ConnectionIO[A])(use: A => ConnectionIO[B])(release: (A, ExitCase[Throwable]) => ConnectionIO[Unit]): ConnectionIO[B] = module.bracketCase(acquire)(use)(release)
+      def pure[A](x: A): ConnectionIO[A] = asyncM.pure(x)
       def handleErrorWith[A](fa: ConnectionIO[A])(f: Throwable => ConnectionIO[A]): ConnectionIO[A] = module.handleErrorWith(fa, f)
       def raiseError[A](e: Throwable): ConnectionIO[A] = module.raiseError(e)
       def async[A](k: (Either[Throwable,A] => Unit) => Unit): ConnectionIO[A] = module.async(k)
-      def flatMap[A, B](fa: ConnectionIO[A])(f: A => ConnectionIO[B]): ConnectionIO[B] = M.flatMap(fa)(f)
-      def tailRecM[A, B](a: A)(f: A => ConnectionIO[Either[A, B]]): ConnectionIO[B] = M.tailRecM(a)(f)
-      def suspend[A](thunk: => ConnectionIO[A]): ConnectionIO[A] = M.flatten(module.delay(thunk))
+      def asyncF[A](k: (Either[Throwable,A] => Unit) => ConnectionIO[Unit]): ConnectionIO[A] = module.asyncF(k)
+      def flatMap[A, B](fa: ConnectionIO[A])(f: A => ConnectionIO[B]): ConnectionIO[B] = asyncM.flatMap(fa)(f)
+      def tailRecM[A, B](a: A)(f: A => ConnectionIO[Either[A, B]]): ConnectionIO[B] = asyncM.tailRecM(a)(f)
+      def suspend[A](thunk: => ConnectionIO[A]): ConnectionIO[A] = asyncM.flatten(module.delay(thunk))
     }
 
+  // ConnectionIO is a ContextShift
+  implicit val ContextShiftConnectionIO: ContextShift[ConnectionIO] =
+    new ContextShift[ConnectionIO] {
+      def shift: ConnectionIO[Unit] = module.shift
+      def evalOn[A](ec: ExecutionContext)(fa: ConnectionIO[A]) = module.evalOn(ec)(fa)
+    }
 }
 

@@ -12,7 +12,8 @@ For our first **Tuco** program we will write a telnet server that greets the use
 The first thing we need to do is bring **Tuco** types and constructors into scope. Fine-grained imports are also possible but in most cases this is the expected way to do things.
 
 ```tut:silent
-import cats._, cats.implicits._, cats.effect.IO
+import cats._, cats.implicits._, cats.effect._
+import scala.concurrent.ExecutionContext
 import tuco._, Tuco._
 ```
 
@@ -23,14 +24,17 @@ val hello: SessionIO[Unit] =
   for {
     _ <- writeLn("Hello World!")
     n <- readLn("What is your name? ")
-    _ <- writeLn(s"Hello $n, and goodbye!")  
+    _ <- writeLn(s"Hello $n, and goodbye!")
   } yield ()
 ```
 
 To complete the specification of our telnet server we construct a `Config` with our behavior and various server options. The defaults are reasonable so we will just provide a port, which is the only required option.
 
 ```tut:silent
-val conf = Config(hello, 6666)
+// We get this for free when using `IOApp`, as we do in the examples project.
+implicit val ioContextShift: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
+
+val conf = Config[IO](hello, 6666)
 ```
 
 We can now start our server by running the `.start` action, which starts up the server and returns an `IO` action that we can use to stop the server.
