@@ -1,10 +1,10 @@
 package example
 
 import scala.util.{ Random, Try, Success, Failure }
-import cats._, cats.implicits._, cats.kernel.Comparison._, cats.effect.IO
+import cats._, cats.implicits._, cats.kernel.Comparison._, cats.effect._
 import tuco._, Tuco._
 
-object GuessingGame {
+object GuessingGame extends IOApp {
 
   // A guessing game.
   def game(r: Random): SessionIO[Unit] =
@@ -33,7 +33,9 @@ object GuessingGame {
     }
 
   // Simple server on the given port.
-  def main(args: Array[String]): Unit =
-    Config(game(new Random), 6666).run(simpleServer).unsafeRunSync
+  def run(args: List[String]): IO[ExitCode] =
+    Config[IO](game(new Random), 6666)
+      .run(simpleServer)
+      .as(ExitCode.Success)
 
 }

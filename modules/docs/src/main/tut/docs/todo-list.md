@@ -16,6 +16,7 @@ First let's deal with imports. Note that we're importing the contents `com.monov
 ```tut:silent
 import com.monovore.decline.{ Command => Cmd, _ }
 import cats._, cats.implicits._, cats.effect._
+import scala.concurrent.ExecutionContext
 import tuco._, Tuco._
 import tuco.shell._
 ```
@@ -220,7 +221,10 @@ val todo: SessionIO[Unit] =
 Our configuration is as before.
 
 ```tut:silent
-val conf = Config(todo, 6666)
+// We get this for free when using `IOApp`, as we do in the examples project.
+implicit val ioContextShift: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
+
+val conf = Config[IO](todo, 6666)
 ```
 
 We can now run our to-do server and connect from another terminal window via `telnet`.

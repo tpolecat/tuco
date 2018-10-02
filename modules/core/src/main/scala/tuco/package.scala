@@ -6,12 +6,12 @@ import tuco.hi.{ basicterminalio => HBT }
 
 package object tuco {
 
-  type Config           = util.Config
-  type Color            = util.Color
-  type Expect           = util.Expect
+  type Config[F[_]] = util.Config[F]
+  type Color        = util.Color
+  type Expect[F[_]] = util.Expect[F]
 
-  val Config       = util.Config
-  val Color        = util.Color
-  val Expect       = util.Expect
+  val Config = util.Config
+  val Color  = util.Color
+  val Expect = util.Expect
 
 }

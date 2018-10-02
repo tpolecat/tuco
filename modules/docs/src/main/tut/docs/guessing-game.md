@@ -11,7 +11,8 @@ For our next **Tuco** program we will build a telnet server that plays a guessin
 
 ```tut:silent
 import scala.util.{ Random, Try, Success, Failure }
-import cats._, cats.implicits._, cats.kernel.Comparison._, cats.effect.IO
+import cats._, cats.implicits._, cats.kernel.Comparison._, cats.effect._
+import scala.concurrent.ExecutionContext
 import tuco._, Tuco._
 ```
 
@@ -72,7 +73,10 @@ def game(r: Random): SessionIO[Unit] =
 Our game is fully implemented and we can define the server config.
 
 ```tut:silent
-val conf = Config(game(new Random(123L)), 6666)
+// We get this for free when using `IOApp`, as we do in the examples project.
+implicit val ioContextShift: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
+
+val conf = Config[IO](game(new Random(123L)), 6666)
 ```
 
 ```tut:invisible

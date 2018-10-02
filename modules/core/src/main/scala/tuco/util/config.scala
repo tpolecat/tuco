@@ -11,31 +11,31 @@ import scala.collection.JavaConverters._
 import cats.~>
 import cats.data.Kleisli
 import cats.effect._
+import cats.implicits._
 
 import tuco.free.{ telnetd => FT, KleisliInterpreter }
 import tuco.free.telnetd.{ TelnetDOp, TelnetDIO }
 import tuco.free.connection.ConnectionIO
 
-case class Config(
-  shell: ConnectionIO[Unit],
-  port: Int,
-  floodProtection: Int = 5,
-  maxCon: Int = 25,
-  timeToWarning: Int = 3600000,
-  timeToTimedout: Int = 60000,
-  housekeepingInterval: Int = 1000,
-  interpreter: TelnetDOp ~> Kleisli[IO, TelnetD, ?] =
-    KleisliInterpreter[IO].TelnetDInterpreter
+class Config[F[_]: Async: ContextShift: Effect](
+  val shell:                ConnectionIO[Unit],
+  val port:                 Int,
+  val floodProtection:      Int,
+  val maxCon:               Int,
+  val timeToWarning:        Int,
+  val timeToTimedout:       Int,
+  val housekeepingInterval: Int,
+  val interpreter:          KleisliInterpreter[F]
 ) {
 
-  def start: IO[IO[Unit]] =
+  def start: F[F[Unit]] =
     for {
       t <- newTelnetD
-      _ <- FT.start.foldMap(interpreter).run(t)
-    } yield FT.stop.foldMap(interpreter).run(t)
+      _ <- FT.start.foldMap(interpreter.TelnetDInterpreter).run(t)
+    } yield FT.stop.foldMap(interpreter.TelnetDInterpreter).run(t)
 
-  def run[A](ma: TelnetDIO[A]): IO[A] =
-    newTelnetD.flatMap(ma.foldMap(interpreter).run)
+  def run[A](ma: TelnetDIO[A]): F[A] =
+    newTelnetD.flatMap(ma.foldMap(interpreter.TelnetDInterpreter).run)
 
   private def unsafeToJavaConfig: JavaConfig = {
     val ps = unsafeToProperties
@@ -45,8 +45,8 @@ case class Config(
     }
   }
 
-  private val newTelnetD: IO[TelnetD] =
-    IO(TelnetD.createTelnetD(unsafeToJavaConfig))
+  private val newTelnetD: F[TelnetD] =
+    Sync[F].delay(TelnetD.createTelnetD(unsafeToJavaConfig))
 
   private def unsafeToProperties: Properties = {
     val ps = new Properties
@@ -76,9 +76,33 @@ case class Config(
   private val factories: JMap[String, Supplier[Shell]] = {
     val m = new JHashMap[String, Supplier[Shell]]
     m.put("tuco", new Supplier[Shell] {
-      def get() = new SafeShell(shell) { }
+      def get() = new SafeShell(shell, interpreter.ConnectionInterpreter) { }
     })
     m
   }
+
+}
+
+object Config {
+
+  def apply[F[_]: Async: ContextShift: Effect](
+    shell:                ConnectionIO[Unit],
+    port:                 Int,
+    floodProtection:      Int = 5,
+    maxCon:               Int = 25,
+    timeToWarning:        Int = 3600000,
+    timeToTimedout:       Int = 60000,
+    housekeepingInterval: Int = 1000,
+  ): Config[F] =
+    new Config[F](
+      shell,
+      port,
+      floodProtection,
+      maxCon,
+      timeToWarning,
+      timeToTimedout,
+      housekeepingInterval,
+      KleisliInterpreter[F]
+    )
 
 }

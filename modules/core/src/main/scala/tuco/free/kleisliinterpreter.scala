@@ -3,7 +3,8 @@ package tuco.free
 // Library imports
 import cats.~>
 import cats.data.Kleisli
-import cats.effect.Async
+import cats.effect.{ Async, ContextShift, ExitCase }
+import scala.concurrent.ExecutionContext
 
 // Types referenced in the JDBC API
 import java.lang.String
@@ -30,15 +31,24 @@ import tuco.free.basicterminalio.{ BasicTerminalIOIO, BasicTerminalIOOp }
 import tuco.free.telnetd.{ TelnetDIO, TelnetDOp }
 
 object KleisliInterpreter {
-  def apply[M[_]](implicit ev: Async[M]): KleisliInterpreter[M] =
+
+  @SuppressWarnings(Array("org.wartremover.warts.DefaultArguments"))
+  def apply[M[_]](
+    implicit am: Async[M],
+             cs: ContextShift[M]
+  ): KleisliInterpreter[M] =
     new KleisliInterpreter[M] {
-      val M = ev
+      val asyncM = am
+      val contextShiftM = cs
     }
+
 }
 
 // Family of interpreters into Kleisli arrows for some monad M.
 trait KleisliInterpreter[M[_]] { outer =>
-  implicit val M: Async[M]
+
+  implicit val asyncM: Async[M]
+  val contextShiftM: ContextShift[M]
 
   // The 6 interpreters, with definitions below. These can be overridden to customize behavior.
   lazy val ConnectionInterpreter: ConnectionOp ~> Kleisli[M, Connection, ?] = new ConnectionInterpreter { }
@@ -49,10 +59,10 @@ trait KleisliInterpreter[M[_]] { outer =>
   lazy val TelnetDInterpreter: TelnetDOp ~> Kleisli[M, TelnetD, ?] = new TelnetDInterpreter { }
 
   // Some methods are common to all interpreters and can be overridden to change behavior globally.
-  def primitive[J, A](f: J => A): Kleisli[M, J, A] = Kleisli(a => M.delay(f(a)))
-  def delay[J, A](a: () => A): Kleisli[M, J, A] = Kleisli(_ => M.delay(a()))
+  def primitive[J, A](f: J => A): Kleisli[M, J, A] = Kleisli(a => asyncM.delay(f(a)))
+  def delay[J, A](a: () => A): Kleisli[M, J, A] = Kleisli(_ => asyncM.delay(a()))
   def raw[J, A](f: J => A): Kleisli[M, J, A] = primitive(f)
-  def async[J, A](k: (Either[Throwable, A] => Unit) => Unit): Kleisli[M, J, A] = Kleisli(_ => M.async(k))
+  def async[J, A](k: (Either[Throwable, A] => Unit) => Unit): Kleisli[M, J, A] = Kleisli(_ => asyncM.async(k))
   def embed[J, A](e: Embedded[A]): Kleisli[M, J, A] =
     e match {
       case Embedded.Connection(j, fa) => Kleisli(_ => fa.foldMap(ConnectionInterpreter).run(j))
@@ -72,13 +82,26 @@ trait KleisliInterpreter[M[_]] { outer =>
     override def delay[A](a: () => A): Kleisli[M, Connection, A] = outer.delay(a)
     override def async[A](k: (Either[Throwable, A] => Unit) => Unit): Kleisli[M, Connection, A] = outer.async(k)
 
+    // for asyncF we must call ourself recursively
+    override def asyncF[A](k: (Either[Throwable, A] => Unit) => ConnectionIO[Unit]): Kleisli[M, Connection, A] =
+      Kleisli(j => asyncM.asyncF(k.andThen(_.foldMap(this).run(j))))
+
     // for handleErrorWith we must call ourself recursively
     override def handleErrorWith[A](fa: ConnectionIO[A], f: Throwable => ConnectionIO[A]): Kleisli[M, Connection, A] =
       Kleisli { j =>
         val faʹ = fa.foldMap(this).run(j)
         val fʹ  = f.andThen(_.foldMap(this).run(j))
-        M.handleErrorWith(faʹ)(fʹ)
+        asyncM.handleErrorWith(faʹ)(fʹ)
       }
+
+    def bracketCase[A, B](acquire: ConnectionIO[A])(use: A => ConnectionIO[B])(release: (A, ExitCase[Throwable]) => ConnectionIO[Unit]): Kleisli[M, Connection, B] =
+      Kleisli(j => asyncM.bracketCase(acquire.foldMap(this).run(j))(use.andThen(_.foldMap(this).run(j)))((a, e) => release(a, e).foldMap(this).run(j)))
+
+    val shift: Kleisli[M, Connection, Unit] =
+      Kleisli(j => contextShiftM.shift)
+
+    def evalOn[A](ec: ExecutionContext)(fa: ConnectionIO[A]): Kleisli[M, Connection, A] =
+      Kleisli(j => contextShiftM.evalOn(ec)(fa.foldMap(this).run(j)))
 
     // domain-specific operations are implemented in terms of `primitive`
     override def addConnectionListener(a: ConnectionListener) = primitive(_.addConnectionListener(a))
@@ -101,13 +124,26 @@ trait KleisliInterpreter[M[_]] { outer =>
     override def delay[A](a: () => A): Kleisli[M, ConnectionData, A] = outer.delay(a)
     override def async[A](k: (Either[Throwable, A] => Unit) => Unit): Kleisli[M, ConnectionData, A] = outer.async(k)
 
+    // for asyncF we must call ourself recursively
+    override def asyncF[A](k: (Either[Throwable, A] => Unit) => ConnectionDataIO[Unit]): Kleisli[M, ConnectionData, A] =
+      Kleisli(j => asyncM.asyncF(k.andThen(_.foldMap(this).run(j))))
+
     // for handleErrorWith we must call ourself recursively
     override def handleErrorWith[A](fa: ConnectionDataIO[A], f: Throwable => ConnectionDataIO[A]): Kleisli[M, ConnectionData, A] =
       Kleisli { j =>
         val faʹ = fa.foldMap(this).run(j)
         val fʹ  = f.andThen(_.foldMap(this).run(j))
-        M.handleErrorWith(faʹ)(fʹ)
+        asyncM.handleErrorWith(faʹ)(fʹ)
       }
+
+    def bracketCase[A, B](acquire: ConnectionDataIO[A])(use: A => ConnectionDataIO[B])(release: (A, ExitCase[Throwable]) => ConnectionDataIO[Unit]): Kleisli[M, ConnectionData, B] =
+      Kleisli(j => asyncM.bracketCase(acquire.foldMap(this).run(j))(use.andThen(_.foldMap(this).run(j)))((a, e) => release(a, e).foldMap(this).run(j)))
+
+    val shift: Kleisli[M, ConnectionData, Unit] =
+      Kleisli(j => contextShiftM.shift)
+
+    def evalOn[A](ec: ExecutionContext)(fa: ConnectionDataIO[A]): Kleisli[M, ConnectionData, A] =
+      Kleisli(j => contextShiftM.evalOn(ec)(fa.foldMap(this).run(j)))
 
     // domain-specific operations are implemented in terms of `primitive`
     override def activity = primitive(_.activity)
@@ -144,13 +180,26 @@ trait KleisliInterpreter[M[_]] { outer =>
     override def delay[A](a: () => A): Kleisli[M, ConnectionEvent, A] = outer.delay(a)
     override def async[A](k: (Either[Throwable, A] => Unit) => Unit): Kleisli[M, ConnectionEvent, A] = outer.async(k)
 
+    // for asyncF we must call ourself recursively
+    override def asyncF[A](k: (Either[Throwable, A] => Unit) => ConnectionEventIO[Unit]): Kleisli[M, ConnectionEvent, A] =
+      Kleisli(j => asyncM.asyncF(k.andThen(_.foldMap(this).run(j))))
+
     // for handleErrorWith we must call ourself recursively
     override def handleErrorWith[A](fa: ConnectionEventIO[A], f: Throwable => ConnectionEventIO[A]): Kleisli[M, ConnectionEvent, A] =
       Kleisli { j =>
         val faʹ = fa.foldMap(this).run(j)
         val fʹ  = f.andThen(_.foldMap(this).run(j))
-        M.handleErrorWith(faʹ)(fʹ)
+        asyncM.handleErrorWith(faʹ)(fʹ)
       }
+
+    def bracketCase[A, B](acquire: ConnectionEventIO[A])(use: A => ConnectionEventIO[B])(release: (A, ExitCase[Throwable]) => ConnectionEventIO[Unit]): Kleisli[M, ConnectionEvent, B] =
+      Kleisli(j => asyncM.bracketCase(acquire.foldMap(this).run(j))(use.andThen(_.foldMap(this).run(j)))((a, e) => release(a, e).foldMap(this).run(j)))
+
+    val shift: Kleisli[M, ConnectionEvent, Unit] =
+      Kleisli(j => contextShiftM.shift)
+
+    def evalOn[A](ec: ExecutionContext)(fa: ConnectionEventIO[A]): Kleisli[M, ConnectionEvent, A] =
+      Kleisli(j => contextShiftM.evalOn(ec)(fa.foldMap(this).run(j)))
 
     // domain-specific operations are implemented in terms of `primitive`
     override def getConnection = primitive(_.getConnection)
@@ -167,13 +216,26 @@ trait KleisliInterpreter[M[_]] { outer =>
     override def delay[A](a: () => A): Kleisli[M, ConnectionListener, A] = outer.delay(a)
     override def async[A](k: (Either[Throwable, A] => Unit) => Unit): Kleisli[M, ConnectionListener, A] = outer.async(k)
 
+    // for asyncF we must call ourself recursively
+    override def asyncF[A](k: (Either[Throwable, A] => Unit) => ConnectionListenerIO[Unit]): Kleisli[M, ConnectionListener, A] =
+      Kleisli(j => asyncM.asyncF(k.andThen(_.foldMap(this).run(j))))
+
     // for handleErrorWith we must call ourself recursively
     override def handleErrorWith[A](fa: ConnectionListenerIO[A], f: Throwable => ConnectionListenerIO[A]): Kleisli[M, ConnectionListener, A] =
       Kleisli { j =>
         val faʹ = fa.foldMap(this).run(j)
         val fʹ  = f.andThen(_.foldMap(this).run(j))
-        M.handleErrorWith(faʹ)(fʹ)
+        asyncM.handleErrorWith(faʹ)(fʹ)
       }
+
+    def bracketCase[A, B](acquire: ConnectionListenerIO[A])(use: A => ConnectionListenerIO[B])(release: (A, ExitCase[Throwable]) => ConnectionListenerIO[Unit]): Kleisli[M, ConnectionListener, B] =
+      Kleisli(j => asyncM.bracketCase(acquire.foldMap(this).run(j))(use.andThen(_.foldMap(this).run(j)))((a, e) => release(a, e).foldMap(this).run(j)))
+
+    val shift: Kleisli[M, ConnectionListener, Unit] =
+      Kleisli(j => contextShiftM.shift)
+
+    def evalOn[A](ec: ExecutionContext)(fa: ConnectionListenerIO[A]): Kleisli[M, ConnectionListener, A] =
+      Kleisli(j => contextShiftM.evalOn(ec)(fa.foldMap(this).run(j)))
 
     // domain-specific operations are implemented in terms of `primitive`
     override def connectionIdle(a: ConnectionEvent) = primitive(_.connectionIdle(a))
@@ -191,13 +253,26 @@ trait KleisliInterpreter[M[_]] { outer =>
     override def delay[A](a: () => A): Kleisli[M, BasicTerminalIO, A] = outer.delay(a)
     override def async[A](k: (Either[Throwable, A] => Unit) => Unit): Kleisli[M, BasicTerminalIO, A] = outer.async(k)
 
+    // for asyncF we must call ourself recursively
+    override def asyncF[A](k: (Either[Throwable, A] => Unit) => BasicTerminalIOIO[Unit]): Kleisli[M, BasicTerminalIO, A] =
+      Kleisli(j => asyncM.asyncF(k.andThen(_.foldMap(this).run(j))))
+
     // for handleErrorWith we must call ourself recursively
     override def handleErrorWith[A](fa: BasicTerminalIOIO[A], f: Throwable => BasicTerminalIOIO[A]): Kleisli[M, BasicTerminalIO, A] =
       Kleisli { j =>
         val faʹ = fa.foldMap(this).run(j)
         val fʹ  = f.andThen(_.foldMap(this).run(j))
-        M.handleErrorWith(faʹ)(fʹ)
+        asyncM.handleErrorWith(faʹ)(fʹ)
       }
+
+    def bracketCase[A, B](acquire: BasicTerminalIOIO[A])(use: A => BasicTerminalIOIO[B])(release: (A, ExitCase[Throwable]) => BasicTerminalIOIO[Unit]): Kleisli[M, BasicTerminalIO, B] =
+      Kleisli(j => asyncM.bracketCase(acquire.foldMap(this).run(j))(use.andThen(_.foldMap(this).run(j)))((a, e) => release(a, e).foldMap(this).run(j)))
+
+    val shift: Kleisli[M, BasicTerminalIO, Unit] =
+      Kleisli(j => contextShiftM.shift)
+
+    def evalOn[A](ec: ExecutionContext)(fa: BasicTerminalIOIO[A]): Kleisli[M, BasicTerminalIO, A] =
+      Kleisli(j => contextShiftM.evalOn(ec)(fa.foldMap(this).run(j)))
 
     // domain-specific operations are implemented in terms of `primitive`
     override def bell = primitive(_.bell)
@@ -253,13 +328,26 @@ trait KleisliInterpreter[M[_]] { outer =>
     override def delay[A](a: () => A): Kleisli[M, TelnetD, A] = outer.delay(a)
     override def async[A](k: (Either[Throwable, A] => Unit) => Unit): Kleisli[M, TelnetD, A] = outer.async(k)
 
+    // for asyncF we must call ourself recursively
+    override def asyncF[A](k: (Either[Throwable, A] => Unit) => TelnetDIO[Unit]): Kleisli[M, TelnetD, A] =
+      Kleisli(j => asyncM.asyncF(k.andThen(_.foldMap(this).run(j))))
+
     // for handleErrorWith we must call ourself recursively
     override def handleErrorWith[A](fa: TelnetDIO[A], f: Throwable => TelnetDIO[A]): Kleisli[M, TelnetD, A] =
       Kleisli { j =>
         val faʹ = fa.foldMap(this).run(j)
         val fʹ  = f.andThen(_.foldMap(this).run(j))
-        M.handleErrorWith(faʹ)(fʹ)
+        asyncM.handleErrorWith(faʹ)(fʹ)
       }
+
+    def bracketCase[A, B](acquire: TelnetDIO[A])(use: A => TelnetDIO[B])(release: (A, ExitCase[Throwable]) => TelnetDIO[Unit]): Kleisli[M, TelnetD, B] =
+      Kleisli(j => asyncM.bracketCase(acquire.foldMap(this).run(j))(use.andThen(_.foldMap(this).run(j)))((a, e) => release(a, e).foldMap(this).run(j)))
+
+    val shift: Kleisli[M, TelnetD, Unit] =
+      Kleisli(j => contextShiftM.shift)
+
+    def evalOn[A](ec: ExecutionContext)(fa: TelnetDIO[A]): Kleisli[M, TelnetD, A] =
+      Kleisli(j => contextShiftM.evalOn(ec)(fa.foldMap(this).run(j)))
 
     // domain-specific operations are implemented in terms of `primitive`
     override def getPortListener(a: String) = primitive(_.getPortListener(a))
