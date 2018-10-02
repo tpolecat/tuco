@@ -92,7 +92,7 @@ object Config {
     maxCon:               Int = 25,
     timeToWarning:        Int = 3600000,
     timeToTimedout:       Int = 60000,
-    housekeepingInterval: Int = 1000,
+    housekeepingInterval: Int = 1000
   ): Config[F] =
     new Config[F](
       shell,
