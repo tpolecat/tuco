@@ -13,11 +13,13 @@ import cats.data.Kleisli
 import cats.effect._
 import cats.implicits._
 
+import scala.concurrent.ExecutionContext
+
 import tuco.free.{ telnetd => FT, KleisliInterpreter }
 import tuco.free.telnetd.{ TelnetDOp, TelnetDIO }
 import tuco.free.connection.ConnectionIO
 
-class Config[F[_]: Async: ContextShift: Effect](
+class Config[F[_]: Sync: LiftIO](
   val shell:                ConnectionIO[Unit],
   val port:                 Int,
   val floodProtection:      Int,
@@ -25,17 +27,17 @@ class Config[F[_]: Async: ContextShift: Effect](
   val timeToWarning:        Int,
   val timeToTimedout:       Int,
   val housekeepingInterval: Int,
-  val interpreter:          KleisliInterpreter[F]
+  val interpreter:          KleisliInterpreter[IO]
 ) {
 
   def start: F[F[Unit]] =
     for {
       t <- newTelnetD
-      _ <- FT.start.foldMap(interpreter.TelnetDInterpreter).run(t)
-    } yield FT.stop.foldMap(interpreter.TelnetDInterpreter).run(t)
+      _ <- FT.start.foldMap(interpreter.TelnetDInterpreter).run(t).to[F]
+    } yield FT.stop.foldMap(interpreter.TelnetDInterpreter).run(t).to[F]
 
   def run[A](ma: TelnetDIO[A]): F[A] =
-    newTelnetD.flatMap(ma.foldMap(interpreter.TelnetDInterpreter).run)
+    newTelnetD.flatMap(a => ma.foldMap(interpreter.TelnetDInterpreter).run(a).to[F])
 
   private def unsafeToJavaConfig: JavaConfig = {
     val ps = unsafeToProperties
@@ -85,7 +87,10 @@ class Config[F[_]: Async: ContextShift: Effect](
 
 object Config {
 
-  def apply[F[_]: Async: ContextShift: Effect](
+  private implicit val ioContextShift: ContextShift[IO] =
+    IO.contextShift(ExecutionContext.global)
+
+  def apply[F[_]: Async](
     shell:                ConnectionIO[Unit],
     port:                 Int,
     floodProtection:      Int = 5,
@@ -102,7 +107,7 @@ object Config {
       timeToWarning,
       timeToTimedout,
       housekeepingInterval,
-      KleisliInterpreter[F]
+      KleisliInterpreter[IO]
     )
 
 }

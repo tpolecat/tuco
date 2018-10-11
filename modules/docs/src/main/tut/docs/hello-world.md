@@ -13,7 +13,6 @@ The first thing we need to do is bring **Tuco** types and constructors into scop
 
 ```tut:silent
 import cats._, cats.implicits._, cats.effect._
-import scala.concurrent.ExecutionContext
 import tuco._, Tuco._
 ```
 
@@ -31,9 +30,6 @@ val hello: SessionIO[Unit] =
 To complete the specification of our telnet server we construct a `Config` with our behavior and various server options. The defaults are reasonable so we will just provide a port, which is the only required option.
 
 ```tut:silent
-// We get this for free when using `IOApp`, as we do in the examples project.
-implicit val ioContextShift: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
-
 val conf = Config[IO](hello, 6666)
 ```
 
