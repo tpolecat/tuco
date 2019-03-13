@@ -14,7 +14,7 @@ case class Zipper[A](lefts: List[A], focus: A, rights: List[A]) {
   def next: Option[Zipper[A]] =
     rights match {
       case Nil     => None
-      case a :: as => Some(Zipper(focus :: rights, a, as))
+      case a :: as => Some(Zipper(focus :: lefts, a, as))
     }
 
 }
